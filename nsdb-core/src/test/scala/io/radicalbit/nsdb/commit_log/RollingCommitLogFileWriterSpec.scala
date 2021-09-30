@@ -19,11 +19,11 @@ package io.radicalbit.nsdb.commit_log
 import java.io.{File, FileOutputStream}
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
 import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest.BeforeAndAfter
@@ -108,7 +108,12 @@ class RollingCommitLogFileWriterSpec
 
         val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
 
-        rolling ! WriteToCommitLog(db, namespace, metric, 1, RejectedEntryAction(bit1), Location(metric, "node", 0, 0))
+        rolling ! WriteToCommitLog(db,
+                                   namespace,
+                                   metric,
+                                   1,
+                                   RejectedEntryAction(bit1),
+                                   Location(metric, NSDbNode.empty, 0, 0))
 
         rolling ! ForceRolling
 

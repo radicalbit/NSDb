@@ -34,7 +34,7 @@ class CapacityWriteNodesSelectionLogic(metricsSelector: CapacityMetricsSelector)
 
   override def selectWriteNodes(nodeMetrics: Set[NodeMetrics], replicationFactor: Int): Seq[String] = {
     metricsSelector.capacity(nodeMetrics).toList.sortBy { case (_, m) => m }.reverse.take(replicationFactor).map {
-      case (address, _) => createNodeName(address)
+      case (address, _) => createNodeAddress(address)
     }
   }
 }

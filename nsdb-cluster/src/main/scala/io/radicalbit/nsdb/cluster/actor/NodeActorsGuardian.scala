@@ -27,7 +27,7 @@ import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.supervision.OneForOneWithRetriesStrategy
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
-import io.radicalbit.nsdb.cluster.createNodeName
+import io.radicalbit.nsdb.cluster.createNodeAddress
 import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
@@ -45,9 +45,9 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private val mediator = DistributedPubSub(context.system).mediator
 
-  private val nodeAddress = createNodeName(selfMember)
+  private val nodeAddress = createNodeAddress(selfMember)
 
-  protected lazy val selfNodeName: String = createNodeName(selfMember)
+  protected lazy val selfNodeName: String = createNodeAddress(selfMember)
   protected lazy val nodeId: String       = FileUtils.getOrCreateNodeId(selfNodeName, config.getString(NSDBMetadataPath))
 
   private val config = context.system.settings.config
@@ -87,7 +87,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   }
 
   def createClusterListener: ActorRef =
-    context.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(selfMember)}")
+    context.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeAddress(selfMember)}")
 
   private val clusterListener: ActorRef = createClusterListener
 
@@ -141,7 +141,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   protected lazy val metricsDataActor: ActorRef = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath, nodeAddress, commitLogCoordinator)
+      .props(indexBasePath, null, commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$actorNameSuffix"
@@ -154,12 +154,12 @@ class NodeActorsGuardian extends Actor with ActorLogging {
       context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
       TimeUnit.SECONDS)
 
-    /**
-      * scheduler that disseminate gossip message to all the cluster listener actors
-      */
-    context.system.scheduler.schedule(interval, interval) {
-      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeAddress))
-    }
+//    /**
+//      * scheduler that disseminate gossip message to all the cluster listener actors
+//      */
+//    context.system.scheduler.schedule(interval, interval) {
+//      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeAddress))
+//    }
 
     log.info(s"NodeActorGuardian is ready at ${self.path.name}")
   }

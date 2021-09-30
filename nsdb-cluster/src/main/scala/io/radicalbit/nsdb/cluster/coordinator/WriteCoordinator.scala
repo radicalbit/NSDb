@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.logic.WriteConfig
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeContext}
@@ -177,7 +177,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                        metric: String,
                        bit: Bit,
                        location: Location): Future[WriteCoordinatorResponse] =
-    metricsDataActors.get(location.node) match {
+    metricsDataActors.get(location.node.uniqueNodeId) match {
       case Some(actor) =>
         (actor ? AddRecordToShard(db, namespace, location, bit)).map {
           case msg: RecordAccumulated => msg
@@ -192,14 +192,14 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                            System.currentTimeMillis())
         }
       case None =>
-        log.error(s"no data actor for node ${location.node}")
+        log.error(s"no data actor for node ${location.node.uniqueNodeId}")
         Future(
           RecordRejected(db,
                          namespace,
                          metric,
                          bit,
                          location,
-                         List(s"no data actor for node ${location.node}"),
+                         List(s"no data actor for node ${location.node.uniqueNodeId}"),
                          System.currentTimeMillis()))
     }
 
@@ -239,7 +239,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                        namespace,
                        response.ts,
                        metric,
-                       response.location.node,
+                       response.location.node.uniqueNodeId,
                        RejectedEntryAction(bit),
                        response.location)
       }
@@ -249,7 +249,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           namespace,
           metric,
           bit,
-          Location(metric, "", 0, 0),
+          Location(metric, NSDbNode.empty, 0, 0),
           List(s"Error in CommitLog write request with reasons: ${failedResponses.map(_.reason)}"),
           System.currentTimeMillis()
         ))
@@ -276,13 +276,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       val accumulationResult = Future
         .sequence {
           responses.map { accumulatorResponse =>
-            writeCommitLog(db,
-                           namespace,
-                           accumulatorResponse.timestamp,
-                           metric,
-                           accumulatorResponse.location.node,
-                           AccumulatedEntryAction(bit),
-                           accumulatorResponse.location)
+            writeCommitLog(
+              db,
+              namespace,
+              accumulatorResponse.timestamp,
+              metric,
+              accumulatorResponse.location.node.uniqueNodeId,
+              AccumulatedEntryAction(bit),
+              accumulatorResponse.location
+            )
           }
         }
         .flatMap { responses =>
@@ -295,7 +297,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       // case in which the accumulation on some node failed
       // we need to delete the accumulated bits on the successful node commit in these nodes a RejectedEntry
       succeedResponses.foreach { response =>
-        metricsDataActors.get(response.location.node) match {
+        metricsDataActors.get(response.location.node.uniqueNodeId) match {
           case Some(mda) => mda ! DeleteRecordFromShard(db, namespace, response.location, bit)
           case None      =>
         }
@@ -304,13 +306,15 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       val commitLogRejection = Future
         .sequence {
           responses.map { accumulatorResponse =>
-            writeCommitLog(db,
-                           namespace,
-                           accumulatorResponse.timestamp,
-                           metric,
-                           accumulatorResponse.location.node,
-                           RejectedEntryAction(bit),
-                           accumulatorResponse.location)
+            writeCommitLog(
+              db,
+              namespace,
+              accumulatorResponse.timestamp,
+              metric,
+              accumulatorResponse.location.node.uniqueNodeId,
+              RejectedEntryAction(bit),
+              accumulatorResponse.location
+            )
           }
         }
         .flatMap { responses =>
@@ -321,7 +325,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                                namespace,
                                metric,
                                bit,
-                               Location(metric, "", 0, 0),
+                               Location(metric, NSDbNode.empty, 0, 0),
                                List(""),
                                System.currentTimeMillis())))
         }
@@ -341,7 +345,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     val commitLogResponses: Future[Seq[CommitLogResponse]] =
       Future
         .sequence(locations.map { loc =>
-          writeCommitLog(db, namespace, timestamp, metric, loc.node, ReceivedEntryAction(bit), loc)
+          writeCommitLog(db, namespace, timestamp, metric, loc.node.uniqueNodeId, ReceivedEntryAction(bit), loc)
         })
 
     commitLogResponses
@@ -443,8 +447,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         commitLogResponses <- Future.sequence {
           locations
             .collect {
-              case location if commitLogCoordinators.contains(location.node) =>
-                (location, commitLogCoordinators(location.node))
+              case location if commitLogCoordinators.contains(location.node.uniqueNodeId) =>
+                (location, commitLogCoordinators(location.node.uniqueNodeId))
             }
             .map {
               case (location, actor) =>
@@ -479,7 +483,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
           metric,
           commitLogCoordinators.keys.head,
           DeleteAction(statement),
-          Location(metric, commitLogCoordinators.keys.head, 0, 0)
+          Location(metric, NSDbNode.fromUniqueId(commitLogCoordinators.keys.head), 0, 0)
         ).flatMap {
           case WriteToCommitLogSucceeded(_, _, _, _, _) =>
             if (metricsDataActors.isEmpty)
@@ -518,8 +522,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         commitLogResponses <- Future.sequence {
           locations
             .collect {
-              case location if commitLogCoordinators.contains(location.node) =>
-                (location, commitLogCoordinators(location.node))
+              case location if commitLogCoordinators.contains(location.node.uniqueNodeId) =>
+                (location, commitLogCoordinators(location.node.uniqueNodeId))
             }
             .map {
               case (location, actor) =>

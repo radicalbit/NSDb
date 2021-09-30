@@ -19,8 +19,8 @@ package io.radicalbit.nsdb.util
 import java.io._
 import java.nio.file.{Path, Paths}
 import java.util.zip.{ZipEntry, ZipFile}
-
 import io.radicalbit.nsdb.common.exception.InvalidNodeIdException
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import org.apache.commons.io.FilenameUtils
 import org.apache.commons.lang3.RandomStringUtils
@@ -33,10 +33,10 @@ import scala.collection.JavaConverters._
   */
 object FileUtils {
 
-  private val NODE_ID_EXTENSION = "name"
-  private val NODE_ID_LENGTH    = 10
-  private val BUFFER_SIZE       = 4096
-  private val buffer            = new Array[Byte](BUFFER_SIZE)
+  final val NODE_ID_EXTENSION = "name"
+  final val NODE_ID_LENGTH    = 10
+  final val BUFFER_SIZE       = 4096
+  final val buffer            = new Array[Byte](BUFFER_SIZE)
 
   private class DirectoryFilter extends FileFilter {
     override def accept(pathname: File): Boolean = pathname.isDirectory
@@ -99,10 +99,10 @@ object FileUtils {
     * The subfolders will be scanned according to this hierarchy.
     * indexBasePath -> database -> namespace -> "shards" -> metric_[from_timestamp]_[to_timestamp].
     * @param basePath the base path to begin the scan.
-    * @param nodeName the node name that will be used for creating locations.
-    *                 @return a list of [[LocationWithCoordinates]].
+    * @param node the NSDb node.
+    * @return a list of [[LocationWithCoordinates]].
     */
-  def getLocationsFromFilesystem(basePath: String, nodeName: String): List[LocationWithCoordinates] =
+  def getLocationsFromFilesystem(basePath: String, node: NSDbNode): List[LocationWithCoordinates] =
     FileUtils
       .getSubDirs(Paths.get(basePath))
       .flatMap { databaseDir =>
@@ -120,7 +120,7 @@ object FileUtils {
                     val metric          = fileName.split(s"_${from}").head
                     LocationWithCoordinates(database,
                                             namespaceDir.getName,
-                                            Location(metric, nodeName, from.toLong, to.toLong))
+                                            Location(metric, node, from.toLong, to.toLong))
                 }
           }
       }

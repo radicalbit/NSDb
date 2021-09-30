@@ -20,7 +20,7 @@ import akka.actor.ActorRef
 import akka.dispatch.ControlMessage
 import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo}
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.{DeleteSQLStatement, SelectSQLStatement}
 import io.radicalbit.nsdb.model.{Location, Schema, TimeContext, TimeRangeContext}
 
@@ -107,7 +107,7 @@ object MessageProtocol {
     case object GetCommitLogCoordinators extends NSDbSerializable
     case object GetPublishers            extends NSDbSerializable
 
-    case class NodeAlive(nodeId: String, nodeAddress: String) extends NSDbSerializable
+    case class NodeAlive(node: NSDbNode) extends NSDbSerializable
 
   }
 
@@ -238,8 +238,7 @@ object MessageProtocol {
 
     case class MigrationStarted(inputPath: String) extends NSDbSerializable
 
-    case class NSDbNode(address: String, nodeId: String) extends NSDbSerializable
-    case class TopologyGot(nodes: Set[NSDbNode])         extends NSDbSerializable
+    case class TopologyGot(nodes: Set[NSDbNode]) extends NSDbSerializable
   }
 
 }

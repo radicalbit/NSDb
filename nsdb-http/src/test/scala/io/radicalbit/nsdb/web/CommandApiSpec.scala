@@ -25,6 +25,7 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.util.Timeout
 import io.radicalbit.nsdb.actor.FakeReadCoordinator
 import io.radicalbit.nsdb.common.model.MetricInfo
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -49,7 +50,7 @@ object CommandApiSpec {
   class FakeMetadataCoordinator extends Actor {
     override def receive: Receive = {
       case GetTopology =>
-        sender() ! TopologyGot(Set(NSDbNode("address", "id")))
+        sender() ! TopologyGot(Set(NSDbNode("address", "fs", "id")))
       case GetLocations(db, namespace, metric) =>
         sender() ! LocationsGot(db, namespace, metric, Seq(Location.empty))
       case GetMetricInfo(db, namespace, "metricWithoutInfo") =>
@@ -90,7 +91,7 @@ class CommandApiSpec extends NSDbFlatSpec with ScalatestRouteTest with CommandAp
     Get("/commands/topology").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
-      entity shouldBe write(TopologyGot(Set(NSDbNode("address", "id"))))
+      entity shouldBe write(TopologyGot(Set(NSDbNode("address", "fs", "id"))))
     }
   }
 

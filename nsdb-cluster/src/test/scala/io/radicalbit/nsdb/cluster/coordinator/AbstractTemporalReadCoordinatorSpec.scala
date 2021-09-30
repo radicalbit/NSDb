@@ -20,6 +20,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 
@@ -29,8 +30,8 @@ import scala.concurrent.duration._
 abstract class AbstractTemporalReadCoordinatorSpec extends AbstractReadCoordinatorSpec {
 
   override def prepareTestData()(implicit timeout: Timeout): Unit = {
-    val location1 = Location(_: String, "node1", 100000, 190000)
-    val location2 = Location(_: String, "node1", 0, 90000)
+    val location1 = Location(_: String, node, 100000, 190000)
+    val location2 = Location(_: String, node, 0, 90000)
 
     //drop metrics
     Await.result(

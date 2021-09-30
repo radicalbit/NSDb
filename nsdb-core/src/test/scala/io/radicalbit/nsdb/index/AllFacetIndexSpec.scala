@@ -18,8 +18,7 @@ package io.radicalbit.nsdb.index
 
 import java.nio.file.Paths
 import java.util.UUID
-
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.common.statement.AvgAggregation
 import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbLongType}
 import io.radicalbit.nsdb.index.StorageStrategy.Memory
@@ -36,7 +35,7 @@ class AllFacetIndexSpec extends NSDbSpec with OneInstancePerTest {
     "Combine Results for temporal average calculation" in {
       val basePath = s"target/test_index/${UUID.randomUUID}"
 
-      val location = Location("metric", "node", 0, 100)
+      val location = Location("metric", NSDbNode("node", "node", "node"), 0, 100)
       val directory =
         new MMapDirectory(Paths.get(basePath, "db", "namespace", "shards", s"${location.shardName}"))
 

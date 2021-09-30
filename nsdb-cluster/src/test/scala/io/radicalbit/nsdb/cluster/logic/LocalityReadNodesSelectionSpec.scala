@@ -16,45 +16,52 @@
 
 package io.radicalbit.nsdb.cluster.logic
 
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.test.NSDbSpec
 
 class LocalityReadNodesSelectionSpec extends NSDbSpec {
 
-  val localityReadNodesSelection = new LocalityReadNodesSelection("this")
-
-  private def testLocations(node: String, start: Long, end: Long) = (start to end).map { i =>
+  private def testLocations(node: NSDbNode, start: Long, end: Long) = (start to end).map { i =>
     Location("metric", node, i, i + 1)
   }
+
+  val thisNode  = NSDbNode("thisNode", "thisNode", "1")
+  val thatNode  = NSDbNode("thatNode", "thatNode", "1")
+  val thatNode2 = NSDbNode("thatNode2", "thatNode2", "1")
+
+  val localityReadNodesSelection = new LocalityReadNodesSelection(thisNode.uniqueNodeId)
 
   "LocalityReadNodesSelection" should {
     "privilege local nodes" in {
 
-      val completelyLocalLocations = testLocations("this", 0, 9) ++
-        testLocations("that", 0, 9) ++
-        testLocations("this", 10, 19) ++
-        testLocations("that2", 10, 19)
+      val completelyLocalLocations = testLocations(thisNode, 0, 9) ++
+        testLocations(thatNode, 0, 9) ++
+        testLocations(thisNode, 10, 19) ++
+        testLocations(thatNode2, 10, 19)
 
       val uniqueLocations = localityReadNodesSelection.getDistinctLocationsByNode(completelyLocalLocations)
-      uniqueLocations.keySet shouldBe Set("this")
-      uniqueLocations("this").sortBy(_.from) shouldBe testLocations("this", 0, 9) ++ testLocations("this", 10, 19)
+      uniqueLocations.keySet shouldBe Set(thisNode.uniqueNodeId)
+      uniqueLocations(thisNode.uniqueNodeId)
+        .sortBy(_.from) shouldBe testLocations(thisNode, 0, 9) ++ testLocations(thisNode, 10, 19)
     }
 
     "use the minimum amount of other locations when some shards is not locally available" in {
 
-      val scatteredLocations = testLocations("this", 0, 9) ++
-        testLocations("that", 0, 9) ++
-        testLocations("that", 10, 19) ++
-        testLocations("that2", 10, 19) ++
-        testLocations("that", 20, 29) ++
-        testLocations("that2", 20, 29) ++
-        testLocations("that2", 30, 39)
+      val scatteredLocations = testLocations(thisNode, 0, 9) ++
+        testLocations(thatNode, 0, 9) ++
+        testLocations(thatNode, 10, 19) ++
+        testLocations(thatNode2, 10, 19) ++
+        testLocations(thatNode, 20, 29) ++
+        testLocations(thatNode2, 20, 29) ++
+        testLocations(thatNode2, 30, 39)
 
       val uniqueLocations = localityReadNodesSelection.getDistinctLocationsByNode(scatteredLocations)
-      uniqueLocations.keySet shouldBe Set("this", "that", "that2")
-      uniqueLocations("this").sortBy(_.from) shouldBe testLocations("this", 0, 9)
-      uniqueLocations("that").sortBy(_.from) shouldBe testLocations("that", 10, 19) ++ testLocations("that", 20, 29)
-      uniqueLocations("that2").sortBy(_.from) shouldBe testLocations("that2", 30, 39)
+      uniqueLocations.keySet shouldBe Set(thisNode.uniqueNodeId, thatNode.uniqueNodeId, thatNode2.uniqueNodeId)
+      uniqueLocations(thisNode.uniqueNodeId).sortBy(_.from) shouldBe testLocations(thisNode, 0, 9)
+      uniqueLocations(thatNode.uniqueNodeId)
+        .sortBy(_.from) shouldBe testLocations(thatNode, 10, 19) ++ testLocations(thatNode, 20, 29)
+      uniqueLocations(thatNode2.uniqueNodeId).sortBy(_.from) shouldBe testLocations(thatNode2, 30, 39)
     }
   }
 

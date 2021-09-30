@@ -171,11 +171,11 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
   /**
     * convert a node name into an internal cache key
     *
-    * @param nodeName the node name to convert
+    * @param uniqueNodeId the node id to convert
     * @return [[ORSetKey]] resulted from metricKey hashCode
     */
-  private def nodeLocationsKey(nodeName: String): ORSetKey[LocationWithCoordinates] =
-    ORSetKey(s"node-locations-cache-$nodeName")
+  private def nodeLocationsKey(uniqueNodeId: String): ORSetKey[LocationWithCoordinates] =
+    ORSetKey(s"node-locations-cache-$uniqueNodeId")
 
   /**
     * convert a [[MetricInfoCacheKey]] into an internal cache key
@@ -229,7 +229,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
               log.error(s"error in put location in cache $e")
               PutLocationInCacheFailed(db, namespace, metric, location)
           }
-        _ <- replicator ? Update(nodeLocationsKey(location.node), ORSet(), actualConsistency)(
+        _ <- replicator ? Update(nodeLocationsKey(location.node.uniqueNodeId), ORSet(), actualConsistency)(
           _ :+ LocationWithCoordinates(db, namespace, location))
         _ <- replicator ? Update(coordinatesKey, ORSet(), actualConsistency)(_ :+ Coordinates(db, namespace, metric))
       } yield loc).pipeTo(sender())
@@ -273,7 +273,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       val metricKey = MetricLocationsCacheKey(db, namespace, metric)
       val f = for {
         remove <- replicator ? Update(metricLocationsKey(metricKey), ORSet(), metadataWriteConsistency)(_ remove loc)
-        _ <- replicator ? Update(nodeLocationsKey(node), ORSet(), metadataWriteConsistency)(
+        _ <- replicator ? Update(nodeLocationsKey(node.uniqueNodeId), ORSet(), metadataWriteConsistency)(
           _ remove LocationWithCoordinates(db, namespace, loc))
       } yield remove
       f.map {

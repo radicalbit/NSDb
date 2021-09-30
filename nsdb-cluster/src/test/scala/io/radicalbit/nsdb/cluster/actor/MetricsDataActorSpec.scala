@@ -17,14 +17,13 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.DeleteRecordFromLocation
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -51,11 +50,11 @@ class MetricsDataActorSpec()
     system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])))
 
   val metricsDataActor =
-    system.actorOf(MetricsDataActor.props(basePath, "testNode", ActorRef.noSender))
+    system.actorOf(MetricsDataActor.props(basePath, NSDbNode.empty, ActorRef.noSender))
 
   private val metric = "metricsDataActorMetric"
 
-  val location = Location(_: String, "testNode", 0, 0)
+  val location = Location(_: String, NSDbNode.empty, 0, 0)
 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + (1 second)

@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorRef, Props}
 import akka.pattern.{ask, gracefulStop, pipe}
 import akka.routing.{DefaultResizer, Pool, RoundRobinPool}
@@ -25,7 +24,7 @@ import akka.util.Timeout
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.actors.{MetricAccumulatorActor, MetricReaderActor}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor._
-import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement.DeleteSQLStatement
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -39,7 +38,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param basePath indexes' root path.
   * @param commitLogCoordinator Commit log coordinator reference.
   */
-class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoordinator: ActorRef)
+class MetricsDataActor(val basePath: String, val node: NSDbNode, commitLogCoordinator: ActorRef)
     extends ActorPathLogging {
 
   lazy val readParallelism: ReadParallelism = ReadParallelism(
@@ -59,7 +58,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
         context.actorOf(
           readParallelism.pool.props(
             MetricReaderActor
-              .props(basePath, nodeName, db, namespace)
+              .props(basePath, node, db, namespace)
               .withDispatcher("akka.actor.control-aware-dispatcher")),
           s"metric_reader_${db}_$namespace"
         ))
@@ -77,7 +76,7 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
         .child(s"metric_reader_${db}_$namespace")
         .getOrElse(context.actorOf(
           readParallelism.pool.props(MetricReaderActor
-            .props(basePath, nodeName, db, namespace)
+            .props(basePath, node, db, namespace)
             .withDispatcher("akka.actor.control-aware-dispatcher")),
           s"metric_reader_${db}_$namespace"
         ))
@@ -130,13 +129,13 @@ class MetricsDataActor(val basePath: String, val nodeName: String, commitLogCoor
       getOrCreateAccumulator(db, namespace) forward DeleteRecordFromShard(
         db,
         namespace,
-        Location(location.metric, nodeName, location.from, location.to),
+        Location(location.metric, node, location.from, location.to),
         bit)
     case ExecuteDeleteStatementInternalInLocations(statement, schema, locations) =>
       getOrCreateAccumulator(statement.db, statement.namespace) forward ExecuteDeleteStatementInShards(
         statement,
         schema,
-        locations.map(l => Location(l.metric, nodeName, l.from, l.to)))
+        locations.map(l => Location(l.metric, node, l.from, l.to)))
   }
 
 }
@@ -164,8 +163,8 @@ object MetricsDataActor {
                       enclosingConfig.getInt("upper-bound"))
   }
 
-  def props(basePath: String, nodeName: String, commitLogCoordinator: ActorRef): Props =
-    Props(new MetricsDataActor(basePath, nodeName, commitLogCoordinator))
+  def props(basePath: String, node: NSDbNode, commitLogCoordinator: ActorRef): Props =
+    Props(new MetricsDataActor(basePath, node, commitLogCoordinator))
 
   case class DeleteRecordFromLocation(db: String, namespace: String, bit: Bit, location: Location)
       extends NSDbSerializable

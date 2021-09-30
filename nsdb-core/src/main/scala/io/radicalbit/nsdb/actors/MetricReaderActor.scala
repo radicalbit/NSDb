@@ -19,14 +19,13 @@ package io.radicalbit.nsdb.actors
 import java.math.{MathContext, RoundingMode}
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props, Terminated}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.ShardReaderActor.RefreshShard
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.{globalTimeout, precision}
-import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, ValueFieldType}
+import io.radicalbit.nsdb.common.protocol.{Bit, DimensionFieldType, NSDbNode, ValueFieldType}
 import io.radicalbit.nsdb.common.statement.{DescOrderOperator, SelectSQLStatement}
 import io.radicalbit.nsdb.common.{NSDbLongType, NSDbType}
 import io.radicalbit.nsdb.model.Location
@@ -49,7 +48,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class MetricReaderActor(val basePath: String, nodeName: String, val db: String, val namespace: String)
+class MetricReaderActor(val basePath: String, node: NSDbNode, val db: String, val namespace: String)
     extends Actor
     with ActorLogging {
   import scala.collection.mutable
@@ -89,13 +88,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
   private def getShardReaderActor(location: Location): Option[ActorRef] = actors.get(location)
 
   private def actorName(location: Location) =
-    s"shard_reader-${location.node}-${location.metric}-${location.from}-${location.to}"
-
-  private def location(actorName: String): Option[Location] =
-    actorName.split("-").takeRight(4) match {
-      case Array(metric, node, from, to) => Some(Location(node, metric, from.toLong, to.toLong))
-      case _                             => None
-    }
+    s"shard_reader-${location.node.nodeFsId}-${location.metric}-${location.from}-${location.to}"
 
   /**
     * Retrieve all the shard actors of a metrics given a set of locations.
@@ -116,7 +109,7 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
       .foreach {
         case shardName if shardName.split("_").length == 3 =>
           val Array(metric, from, to) = shardName.split("_")
-          val location                = Location(metric, nodeName, from.toLong, to.toLong)
+          val location                = Location(metric, node, from.toLong, to.toLong)
           val shardActor =
             context.actorOf(ShardReaderActor.props(basePath, db, namespace, location), actorName(location))
           context.watch(shardActor)
@@ -257,10 +250,10 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
     */
   def readOps: Receive = {
     case Terminated(actor) =>
-      location(actor.path.name).foreach { location =>
-        log.debug("removing not used actor for location", location)
-        actors -= location
-      }
+//      location(actor.path.name).foreach { location =>
+//        log.debug("removing not used actor for location", location)
+//        actors -= location
+//      }
     case msg @ GetCountWithLocations(_, ns, metric, locations) =>
       Future
         .sequence(actorsForLocations(locations).map {
@@ -370,6 +363,6 @@ class MetricReaderActor(val basePath: String, nodeName: String, val db: String, 
 
 object MetricReaderActor {
 
-  def props(basePath: String, nodeName: String, db: String, namespace: String): Props =
-    Props(new MetricReaderActor(basePath, nodeName, db, namespace))
+  def props(basePath: String, node: NSDbNode, db: String, namespace: String): Props =
+    Props(new MetricReaderActor(basePath, node, db, namespace))
 }

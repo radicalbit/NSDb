@@ -124,22 +124,23 @@ class RetentionSpec
   )
 
   override def beforeAll = {
-    NSDbClusterSnapshot(system).addNode("localhost", "nodeId")
+    val node = NSDbNode("localhost", "nodeId", "1")
+    NSDbClusterSnapshot(system).addNode(node)
 
     val nodesId = awaitAssert {
       val nodes = NSDbClusterSnapshot(system).nodes
       nodes.size shouldBe 1
-      nodes.head.nodeId
     }
 
     val metricsDataActor =
-      system.actorOf(MetricsDataActor.props(basePath, nodesId, Actor.noSender))
+      system.actorOf(MetricsDataActor.props(basePath, node, Actor.noSender))
 
-    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, nodesId), 10 seconds)
-    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodesId), 10 seconds)
-    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodesId), 10 seconds)
-    Await.result(writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, nodesId), 10 seconds)
-    Await.result(writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, nodesId), 10 seconds)
+    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, node.uniqueNodeId), 10 seconds)
+    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActor, node.uniqueNodeId), 10 seconds)
+    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, node.uniqueNodeId),
+                 10 seconds)
+    Await.result(writeCoordinator ? SubscribeMetricsDataActor(metricsDataActor, node.uniqueNodeId), 10 seconds)
+    Await.result(writeCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, node.uniqueNodeId), 10 seconds)
 
     Await.result(writeCoordinator ? DropMetric(db, namespace, metricWithRetention), 10 seconds)
     Await.result(writeCoordinator ? DropMetric(db, namespace, metricWithoutRetention), 10 seconds)

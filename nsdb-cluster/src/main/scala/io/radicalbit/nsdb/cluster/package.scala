@@ -20,10 +20,10 @@ import akka.cluster.Member
 
 package object cluster {
 
-  def createNodeName(member: Member) =
+  def createNodeAddress(member: Member) =
     s"${member.address.host.getOrElse("noHost")}_${member.address.port.getOrElse(0)}"
 
-  def createNodeName(address: Address) =
+  def createNodeAddress(address: Address) =
     s"${address.host.getOrElse("noHost")}_${address.port.getOrElse(0)}"
 
   /**

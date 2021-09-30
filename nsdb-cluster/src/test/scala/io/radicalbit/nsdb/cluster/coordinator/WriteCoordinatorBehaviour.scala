@@ -28,7 +28,7 @@ import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
 }
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -64,6 +64,8 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
   def namespace: String
 
+  val node: NSDbNode = NSDbNode("localhost", "nodeId", "1")
+
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + 1.second
 
@@ -89,13 +91,13 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
     WriteCoordinator.props(metadataCoordinator, schemaCoordinator, system.actorOf(Props.empty)),
     "writeCoordinator")
   lazy val metricsDataActor =
-    TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, "localhost", writeCoordinatorActor))
+    TestActorRef[MetricsDataActor](MetricsDataActor.props(basePath, node, writeCoordinatorActor))
 
   val record1 = Bit(System.currentTimeMillis, 1, Map("content" -> s"content"), Map.empty)
   val record2 =
     Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
 
-  NSDbClusterSnapshot(system).addNode("localhost", "nodeId")
+  NSDbClusterSnapshot(system).addNode("localhost", "nodeId", "1")
 
   def defaultBehaviour {
     "write records" in {

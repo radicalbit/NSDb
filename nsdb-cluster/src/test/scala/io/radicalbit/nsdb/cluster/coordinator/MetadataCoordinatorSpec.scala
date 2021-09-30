@@ -32,7 +32,7 @@ import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.logic.CapacityWriteNodesSelectionLogic
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricInfoGot
@@ -81,12 +81,17 @@ class MetadataCoordinatorSpec
 
   implicit val timeout = Timeout(10 seconds)
 
-  override def beforeAll = {
-    NSDbClusterSnapshot(system).addNode("localhost_2552", "node_01")
-    NSDbClusterSnapshot(system).addNode("localhost_2553", "node_02")
+  val node1 = NSDbNode("localhost_2552", "node_01", "1")
+  val node2 = NSDbNode("localhost_2553", "node_02", "2")
 
-    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, "node_01"), 10 seconds)
-    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActorProbe.ref, "node_01"), 10 seconds)
+  override def beforeAll = {
+    NSDbClusterSnapshot(system).addNode(node1)
+    NSDbClusterSnapshot(system).addNode(node2)
+
+    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, node1.uniqueNodeId),
+                 10 seconds)
+    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActorProbe.ref, node1.uniqueNodeId),
+                 10 seconds)
 
     val nameRecord = Bit(0, 1, Map("name" -> "name"), Map("city" -> "milano"))
     Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, nameRecord), 10 seconds)
@@ -100,9 +105,9 @@ class MetadataCoordinatorSpec
   "MetadataCoordinator" should {
     "add multiple locations for a metric" in {
 
-      val locations = Seq(Location(metric, "node_01", 0L, 30000L),
-                          Location(metric, "node_01", 0L, 60000L),
-                          Location(metric, "node_01", 0L, 90000L))
+      val locations = Seq(Location(metric, node1, 0L, 30000L),
+                          Location(metric, node1, 0L, 60000L),
+                          Location(metric, node1, 0L, 90000L))
 
       probe.send(metadataCoordinator, AddLocations(db, namespace, locations))
       val locationAdded = awaitAssert {
@@ -120,12 +125,12 @@ class MetadataCoordinatorSpec
     }
 
     "retrieve a Location for a metric" in {
-      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(Location(metric, "node_01", 0L, 30000L))))
+      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(Location(metric, node1, 0L, 30000L))))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(Location(metric, "node_02", 0L, 30000L))))
+      probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(Location(metric, node2, 0L, 30000L))))
       awaitAssert {
         probe.expectMsgType[LocationsAdded]
       }
@@ -140,21 +145,21 @@ class MetadataCoordinatorSpec
       loc.metric shouldBe metric
       loc.from shouldBe 0L
       loc.to shouldBe 30000L
-      loc.node shouldBe "node_01"
+      loc.node.uniqueNodeId shouldBe node1.uniqueNodeId
 
       val loc2 = retrievedLocations.locations.last
       loc2.metric shouldBe metric
       loc2.from shouldBe 0L
       loc2.to shouldBe 30000L
-      loc2.node shouldBe "node_02"
+      loc2.node.uniqueNodeId shouldBe node2.uniqueNodeId
     }
 
     "retrieve Locations for a metric" in {
 
-      val loc11 = Location(metric, "node_01", 0L, 30000L)
-      val loc21 = Location(metric, "node_02", 0L, 30000L)
-      val loc12 = Location(metric, "node_01", 30000L, 60000L)
-      val loc22 = Location(metric, "node_02", 30000L, 60000L)
+      val loc11 = Location(metric, node1, 0L, 30000L)
+      val loc21 = Location(metric, node2, 0L, 30000L)
+      val loc12 = Location(metric, node1, 30000L, 60000L)
+      val loc22 = Location(metric, node2, 30000L, 60000L)
 
       probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(loc11)))
       awaitAssert {
@@ -336,10 +341,10 @@ class MetadataCoordinatorSpec
       val now = System.currentTimeMillis()
 
       val locations = Seq(
-        Location(metric, "node_01", 0L, 30000L),
-        Location(metric, "node_01", 30000L, 60000L),
-        Location(metric, "node_01", now - 5000, now - 2000),
-        Location(metric, "node_01", now - 1000, now)
+        Location(metric, node1, 0L, 30000L),
+        Location(metric, node1, 30000L, 60000L),
+        Location(metric, node1, now - 5000, now - 2000),
+        Location(metric, node1, now - 1000, now)
       )
 
       probe.send(metadataCoordinator, AddLocations(db, namespace, locations))

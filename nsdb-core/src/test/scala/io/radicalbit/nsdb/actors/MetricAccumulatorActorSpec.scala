@@ -18,13 +18,12 @@ package io.radicalbit.nsdb.actors
 
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.routing.RoundRobinPool
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
@@ -51,9 +50,10 @@ class MetricAccumulatorActorSpec()
   val namespace = "namespace"
   val metric    = "shardActorMetric"
   val nodeName  = "node1"
+  val node      = NSDbNode(nodeName, nodeName, nodeName)
 
   val metricsReaderActor =
-    system.actorOf(RoundRobinPool(1, None).props(MetricReaderActor.props(basePath, nodeName, db, namespace)))
+    system.actorOf(RoundRobinPool(1, None).props(MetricReaderActor.props(basePath, node, db, namespace)))
 
   val metricAccumulatorActor =
     TestActorRef[MetricAccumulatorActor](
@@ -64,7 +64,7 @@ class MetricAccumulatorActorSpec()
 
   val schema = Schema("", dummyBit)
 
-  private val location = Location("testMetric", nodeName, 0, 0)
+  private val location = Location("testMetric", node, 0, 0)
 
   private def checkExistance(location: Location): Boolean =
     Paths.get(basePath, db, namespace, "shards", s"${location.shardName}").toFile.exists()
@@ -77,7 +77,7 @@ class MetricAccumulatorActorSpec()
   "MetricAccumulatorActor" should "write and delete properly" in {
 
     val bit      = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
-    val location = Location("shardActorMetric", nodeName, 0, 100)
+    val location = Location("shardActorMetric", node, 0, 100)
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location, bit))
     awaitAssert {
@@ -112,8 +112,8 @@ class MetricAccumulatorActorSpec()
 
   "MetricAccumulatorActor" should "write and delete properly the same metric in multiple keys" in {
 
-    val key  = Location("shardActorMetric", nodeName, 0, 100)
-    val key2 = Location("shardActorMetric", nodeName, 101, 200)
+    val key  = Location("shardActorMetric", node, 0, 100)
+    val key2 = Location("shardActorMetric", node, 101, 200)
 
     val bit11 = Bit(System.currentTimeMillis, 22.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
     val bit12 = Bit(System.currentTimeMillis, 30.5, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
@@ -144,18 +144,18 @@ class MetricAccumulatorActorSpec()
       expectedCount.count shouldBe 5
 
       metricAccumulatorActor.underlyingActor.shards.size shouldBe 2
-      metricAccumulatorActor.underlyingActor.shards.keys.toSeq.contains(Location("shardActorMetric", nodeName, 0, 100))
+      metricAccumulatorActor.underlyingActor.shards.keys.toSeq.contains(Location("shardActorMetric", node, 0, 100))
       metricAccumulatorActor.underlyingActor.shards.keys.toSeq
-        .contains(Location("shardActorMetric", nodeName, 101, 200))
+        .contains(Location("shardActorMetric", node, 101, 200))
 
-      val i1     = metricAccumulatorActor.underlyingActor.shards(Location("shardActorMetric", nodeName, 0, 100))
+      val i1     = metricAccumulatorActor.underlyingActor.shards(Location("shardActorMetric", node, 0, 100))
       val shard1 = i1.all(schema)
       shard1.size shouldBe 3
       shard1 should contain(bit11)
       shard1 should contain(bit12)
       shard1 should contain(bit13)
 
-      val i2     = metricAccumulatorActor.underlyingActor.shards(Location("shardActorMetric", nodeName, 101, 200))
+      val i2     = metricAccumulatorActor.underlyingActor.shards(Location("shardActorMetric", node, 101, 200))
       val shard2 = i2.all(schema)
       shard2.size shouldBe 2
       shard2 should contain(bit21)
@@ -201,8 +201,8 @@ class MetricAccumulatorActorSpec()
     val bit1 = Bit(System.currentTimeMillis, 25, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
     val bit2 = Bit(System.currentTimeMillis, 30, Map("dimension" -> "dimension"), Map("tag" -> "tag"))
 
-    val location1 = Location("testMetric", nodeName, 25, 28)
-    val location2 = Location("testMetric", nodeName, 30, 33)
+    val location1 = Location("testMetric", node, 25, 28)
+    val location2 = Location("testMetric", node, 30, 33)
 
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location1, bit1))
     probe.send(metricAccumulatorActor, AddRecordToShard(db, namespace, location2, bit2))

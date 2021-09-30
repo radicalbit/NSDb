@@ -101,10 +101,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
 
     Future
       .sequence(metricsDataActors.collect {
-        case (nodeId, actor) if uniqueLocationsByNode.isDefinedAt(nodeId) =>
+        case (uniqueNodeId, actor) if uniqueLocationsByNode.isDefinedAt(uniqueNodeId) =>
           actor ? ExecuteSelectStatement(statement,
                                          schema,
-                                         uniqueLocationsByNode.getOrElse(nodeId, Seq.empty),
+                                         uniqueLocationsByNode.getOrElse(uniqueNodeId, Seq.empty),
                                          timeRangeContext,
                                          timeContext,
                                          isSingleNode)

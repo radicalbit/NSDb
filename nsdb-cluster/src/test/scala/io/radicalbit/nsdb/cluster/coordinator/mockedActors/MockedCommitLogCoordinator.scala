@@ -22,17 +22,18 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{
   WriteToCommitLogFailed,
   WriteToCommitLogSucceeded
 }
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{AddRecordToShard, DeleteRecordFromShard}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordAccumulated, RecordRejected}
 
 class MockedCommitLogCoordinator(probe: ActorRef) extends Actor with ActorLogging {
   override def receive: Receive = {
     case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _, location)
-        if location.node == "node1" && metric != "metric2" =>
+        if location.node.uniqueNodeId == "node1" && metric != "metric2" =>
       probe ! msg
       sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
     case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _, location)
-        if location.node == "node2" && metric != "metric2" =>
+        if location.node.uniqueNodeId == "node2" && metric != "metric2" =>
       probe ! msg
       sender ! WriteToCommitLogFailed(db, namespace, timestamp, metric, "mock failure reason")
     case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _, location) =>
@@ -48,20 +49,22 @@ case object MockedCommitLogCoordinator {
     Props(new MockedCommitLogCoordinator(probe))
 }
 
-class MockedMetricsDataActor(probe: ActorRef) extends Actor with ActorLogging {
+class MockedMetricsDataActor(successfulNode: NSDbNode, failinfNode: NSDbNode, probe: ActorRef)
+    extends Actor
+    with ActorLogging {
 
   override def receive: Receive = {
-    case msg @ AddRecordToShard(db, namespace, location, bit) if location.node == "node1" =>
+    case msg @ AddRecordToShard(db, namespace, location, bit) if location.node == successfulNode =>
       probe ! msg
       sender() ! RecordAccumulated(db, namespace, location.metric, bit, location, System.currentTimeMillis())
-    case msg @ AddRecordToShard(db, namespace, location, bit) if location.node == "node2" =>
+    case msg @ AddRecordToShard(db, namespace, location, bit) if location.node == failinfNode =>
       probe ! msg
       sender() ! RecordRejected(db,
                                 namespace,
                                 location.metric,
                                 bit,
                                 location,
-                                List("errrrros"),
+                                List("errors"),
                                 System.currentTimeMillis())
     case msg @ DeleteRecordFromShard(_, _, _, _) =>
       probe ! msg
@@ -69,6 +72,6 @@ class MockedMetricsDataActor(probe: ActorRef) extends Actor with ActorLogging {
 }
 
 object MockedMetricsDataActor {
-  def props(probe: ActorRef): Props =
-    Props(new MockedMetricsDataActor(probe))
+  def props(successfulNode: NSDbNode, failingNode: NSDbNode, probe: ActorRef): Props =
+    Props(new MockedMetricsDataActor(successfulNode, failingNode, probe))
 }

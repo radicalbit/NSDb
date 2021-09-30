@@ -16,6 +16,7 @@
 
 package io.radicalbit.nsdb.statement
 
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Location, TimeContext, TimeRange}
 import io.radicalbit.nsdb.test.NSDbSpec
@@ -30,27 +31,27 @@ class TimeRangeManagerSpec extends NSDbSpec {
   "A TimeRange" should {
 
     "check if it intersects a location" in {
-      TimeRange(10, 20, true, true).intersect(Location("", "", 30, 40)) shouldBe false
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 30, 40)) shouldBe false
 
-      TimeRange(10, 20, true, true).intersect(Location("", "", 10, 20)) shouldBe true
-      TimeRange(10, 20, true, true).intersect(Location("", "", 11, 19)) shouldBe true
-      TimeRange(10, 20, true, true).intersect(Location("", "", 10, 15)) shouldBe true
-      TimeRange(10, 20, true, true).intersect(Location("", "", 10, 15)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 10, 20)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 11, 19)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 10, 15)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 10, 15)) shouldBe true
 
-      TimeRange(10, 20, true, true).intersect(Location("", "", 5, 20)) shouldBe true
-      TimeRange(10, 20, true, true).intersect(Location("", "", 10, 30)) shouldBe true
-      TimeRange(10, 20, true, true).intersect(Location("", "", 5, 30)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 5, 20)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 10, 30)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 5, 30)) shouldBe true
 
-      TimeRange(10, 20, true, true).intersect(Location("", "", 5, 10)) shouldBe true
-      TimeRange(10, 20, true, true).intersect(Location("", "", 20, 30)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 5, 10)) shouldBe true
+      TimeRange(10, 20, true, true).intersect(Location("", NSDbNode.empty, 20, 30)) shouldBe true
     }
 
     "check it properly when lowerbound is not inclusive" in {
-      TimeRange(10, 20, false, true).intersect(Location("", "", 5, 10)) shouldBe false
+      TimeRange(10, 20, false, true).intersect(Location("", NSDbNode.empty, 5, 10)) shouldBe false
     }
 
     "check it properly when upperbound is not inclusive" in {
-      TimeRange(10, 20, true, false).intersect(Location("", "", 20, 30)) shouldBe false
+      TimeRange(10, 20, true, false).intersect(Location("", NSDbNode.empty, 20, 30)) shouldBe false
     }
   }
 
@@ -387,16 +388,18 @@ class TimeRangeManagerSpec extends NSDbSpec {
 
       "filter locations given a retention" in {
         val locationSequence = Seq(
-          Location("metric", "node", 0, 5),
-          Location("metric", "node", 6, 10),
-          Location("metric", "node", 11, 15),
-          Location("metric", "node", 16, 20),
-          Location("metric", "node", 21, 25)
+          Location("metric", NSDbNode.empty, 0, 5),
+          Location("metric", NSDbNode.empty, 6, 10),
+          Location("metric", NSDbNode.empty, 11, 15),
+          Location("metric", NSDbNode.empty, 16, 20),
+          Location("metric", NSDbNode.empty, 21, 25)
         )
 
         TimeRangeManager.getLocationsToEvict(locationSequence, 6)(TimeContext(10L)) shouldBe (
-          Seq(Location("metric", "node", 16, 20), Location("metric", "node", 21, 25)),
-          Seq(Location("metric", "node", 0, 5), Location("metric", "node", 6, 10), Location("metric", "node", 11, 15))
+          Seq(Location("metric", NSDbNode.empty, 16, 20), Location("metric", NSDbNode.empty, 21, 25)),
+          Seq(Location("metric", NSDbNode.empty, 0, 5),
+              Location("metric", NSDbNode.empty, 6, 10),
+              Location("metric", NSDbNode.empty, 11, 15))
         )
 
       }

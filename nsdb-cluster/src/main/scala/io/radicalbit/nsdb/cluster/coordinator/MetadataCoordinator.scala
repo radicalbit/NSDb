@@ -191,7 +191,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                                                      ts: Long,
                                                      location: Location,
                                                      statement: DeleteSQLStatement): Future[CommitLogResponse] = {
-    commitLogCoordinators.get(location.node) match {
+    commitLogCoordinators.get(location.node.uniqueNodeId) match {
       case Some(commitLogCoordinator) =>
         (commitLogCoordinator ? WriteToCommitLog(
           db = db,
@@ -220,7 +220,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                                      namespace: String,
                                      ts: Long,
                                      location: Location): Future[CommitLogResponse] = {
-    commitLogCoordinators.get(location.node) match {
+    commitLogCoordinators.get(location.node.uniqueNodeId) match {
       case Some(commitLogCoordinator) =>
         (commitLogCoordinator ? WriteToCommitLog(
           db = db,
@@ -250,7 +250,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
     (schemaCache ? GetSchemaFromCache(statement.db, statement.namespace, statement.metric))
       .flatMap {
         case SchemaCached(_, _, _, Some(schema)) =>
-          metricsDataActors.get(location.node) match {
+          metricsDataActors.get(location.node.uniqueNodeId) match {
             case Some(dataActor) =>
               (dataActor ? ExecuteDeleteStatementInternalInLocations(statement, schema, Seq(location))).map {
                 case msg: DeleteStatementExecuted => Right(msg)
@@ -290,7 +290,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                                 namespace: String,
                                 location: Location): Future[Either[EvictedShardFailed, ShardEvicted]] = {
 
-    metricsDataActors.get(location.node) match {
+    metricsDataActors.get(location.node.uniqueNodeId) match {
       case Some(dataActor) =>
         (dataActor ? EvictShard(db, namespace, location)).map {
           case msg: ShardEvicted       => Right(msg)
@@ -484,13 +484,13 @@ class MetadataCoordinator(clusterListener: ActorRef,
                             if (nodeMetrics.nodeMetrics.nonEmpty)
                               writeNodesSelectionLogic
                                 .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
-                                .map(address => nsdbClusterSnapshot.getId(address))
+                                .map(address => nsdbClusterSnapshot.getNode(address))
                             else {
                               Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor)
                             }
 
                           val locations = nodes.map { node =>
-                            Location(metric, node.nodeId, start, end)
+                            Location(metric, node, start, end)
                           }
                           performAddLocationIntoCache(db, namespace, locations, None)
                         }

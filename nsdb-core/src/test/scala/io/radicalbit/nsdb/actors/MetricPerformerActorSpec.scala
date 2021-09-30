@@ -21,7 +21,7 @@ import akka.actor._
 import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.index.BrokenTimeSeriesIndex
 import io.radicalbit.nsdb.model.Location
@@ -77,9 +77,11 @@ class MetricPerformerActorSpec
 
   indexerPerformerActor.underlyingActor.supervisorStrategy
 
-  val errorLocation               = Location("IndexerPerformerActorMetric", "node1", 1, 1)
-  val unstableRecoverableLocation = Location("IndexerPerformerActorMetric", "node1", 2, 2)
-  val unstableLocation            = Location("IndexerPerformerActorMetric", "node1", 3, 3)
+  val node = NSDbNode("node1", "node1", "node1")
+
+  val errorLocation               = Location("IndexerPerformerActorMetric", node, 1, 1)
+  val unstableRecoverableLocation = Location("IndexerPerformerActorMetric", node, 2, 2)
+  val unstableLocation            = Location("IndexerPerformerActorMetric", node, 3, 3)
   val bit                         = Bit(System.currentTimeMillis, 25, Map("content" -> "content"), Map.empty)
 
   override def beforeAll: Unit = {
@@ -110,7 +112,7 @@ class MetricPerformerActorSpec
   "ShardPerformerActor" should {
     "write and delete properly" in {
 
-      val loc = Location("IndexerPerformerActorMetric", "node1", 0, 0)
+      val loc = Location("IndexerPerformerActorMetric", node, 0, 0)
 
       val operations =
         Map(UUID.randomUUID().toString -> WriteShardOperation(namespace, loc, bit))
