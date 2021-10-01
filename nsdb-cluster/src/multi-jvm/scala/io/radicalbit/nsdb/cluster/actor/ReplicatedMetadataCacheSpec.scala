@@ -444,22 +444,25 @@ class ReplicatedMetadataCacheSpec
       enterBarrier("after-update")
     }
 
-    "evict locations for a node" in within(5.seconds) {
+    "evict locations for a node" in {
       val db = "db2"
       val namespace = "namespace2"
       val metric   = "metric2"
 
+      val nsdbNode10 = NSDbNode("localhost_2552", "node10", "1")
+      val nsdbNode20 = NSDbNode("localhost_2552", "node20", "1")
+
       runOn(node1) {
         for (i ← 10 to 20) {
-          replicatedCache ! PutLocationInCache(db, namespace, metric, Location(metric, nsdbNode1, i - 1, i))
-          expectMsg(LocationCached(db, namespace, metric, Location(metric, nsdbNode1,i - 1, i)))
+          replicatedCache ! PutLocationInCache(db, namespace, metric, Location(metric, nsdbNode10, i - 1, i))
+          expectMsg(LocationCached(db, namespace, metric, Location(metric, nsdbNode10,i - 1, i)))
         }
       }
 
       runOn(node2) {
         for (i ← 10 to 20) {
-          replicatedCache ! PutLocationInCache(db, namespace, metric, Location(metric, nsdbNode2, i - 1, i))
-          expectMsg(LocationCached(db, namespace, metric, Location(metric, nsdbNode2,i - 1, i)))
+          replicatedCache ! PutLocationInCache(db, namespace, metric, Location(metric, nsdbNode20, i - 1, i))
+          expectMsg(LocationCached(db, namespace, metric, Location(metric, nsdbNode20,i - 1, i)))
         }
       }
 
@@ -471,17 +474,17 @@ class ReplicatedMetadataCacheSpec
       }
 
       awaitAssert {
-        replicatedCache ! GetLocationsInNodeFromCache(db, namespace, metric, "node10")
+        replicatedCache ! GetLocationsInNodeFromCache(db, namespace, metric, nsdbNode10.uniqueNodeId)
         expectMsgType[LocationsCached].locations.size shouldBe 11
       }
       awaitAssert {
-        replicatedCache ! GetLocationsInNodeFromCache(db, namespace, metric, "node20")
+        replicatedCache ! GetLocationsInNodeFromCache(db, namespace, metric, nsdbNode20.uniqueNodeId)
         expectMsgType[LocationsCached].locations.size shouldBe 11
       }
 
       runOn(node2) {
-          replicatedCache ! EvictLocationsInNode("node10")
-          expectMsg(Right(LocationsInNodeEvicted("node10")))
+          replicatedCache ! EvictLocationsInNode(nsdbNode10.uniqueNodeId)
+          expectMsg(Right(LocationsInNodeEvicted(nsdbNode10.uniqueNodeId)))
       }
 
       awaitAssert {
@@ -490,8 +493,8 @@ class ReplicatedMetadataCacheSpec
       }
 
       runOn(node1) {
-          replicatedCache ! EvictLocationsInNode("node20")
-          expectMsg(Right(LocationsInNodeEvicted("node20")))
+          replicatedCache ! EvictLocationsInNode(nsdbNode20.uniqueNodeId)
+          expectMsg(Right(LocationsInNodeEvicted(nsdbNode20.uniqueNodeId)))
       }
 
       awaitAssert {
