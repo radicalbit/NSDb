@@ -153,9 +153,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
     case MemberUp(member) if member == cluster.selfMember =>
       log.info(s"Member with nodeId $nodeId and address ${member.address} is Up")
 
-      val nodeAddress = createNodeAddress(member)
-
-      val node = NSDbNode(nodeAddress, nodeId)
+      val node = NSDbNode(createNodeAddress(member), nodeId)
 
       val nodeActorsGuardian = context.parent
       (for {

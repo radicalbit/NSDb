@@ -117,6 +117,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
         } else {
           val combinedResponsesFromNodes =
             rawResponses.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
+          log.debug(s"combined results from node $combinedResponsesFromNodes")
           SelectStatementExecuted(
             statement,
             if (isSingleNode) combinedResponsesFromNodes

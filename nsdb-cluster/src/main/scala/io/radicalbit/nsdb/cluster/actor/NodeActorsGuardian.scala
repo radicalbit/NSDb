@@ -52,6 +52,8 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   protected lazy val selfNodeName: String = createNodeAddress(selfMember)
   protected lazy val nodeId: String       = FileUtils.getOrCreateNodeId(selfNodeName, config.getString(NSDBMetadataPath))
 
+  protected lazy val node: NSDbNode = NSDbNode(nodeAddress, nodeId)
+
   private val config = context.system.settings.config
 
   private val indexBasePath = config.getString(StorageIndexPath)
@@ -155,12 +157,14 @@ class NodeActorsGuardian extends Actor with ActorLogging {
       context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
       TimeUnit.SECONDS)
 
-//    /**
-//      * scheduler that disseminate gossip message to all the cluster listener actors
-//      */
-//    context.system.scheduler.schedule(interval, interval) {
-//      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeAddress))
-//    }
+    import context.dispatcher
+
+    /**
+      * scheduler that disseminate gossip message to all the cluster listener actors
+      */
+    context.system.scheduler.schedule(interval, interval) {
+      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(NSDbNode(nodeAddress, nodeId)))
+    }
 
     log.info(s"NodeActorGuardian is ready at ${self.path.name}")
   }
@@ -169,13 +173,13 @@ class NodeActorsGuardian extends Actor with ActorLogging {
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
     case GetMetricsDataActors =>
-      log.debug("gossiping metric data actors from node {}", nodeId)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeId))
+      log.debug(s"gossiping metric data actors from node ${node.uniqueNodeId}")
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, node.uniqueNodeId))
     case GetCommitLogCoordinators =>
-      log.debug("gossiping commit logs for node {}", nodeId)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeId))
+      log.debug(s"gossiping commit logs for node ${node.uniqueNodeId}")
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, node.uniqueNodeId))
     case GetPublishers =>
-      log.debug("gossiping publishers for node {}", nodeId)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeId))
+      log.debug(s"gossiping publishers for node ${node.uniqueNodeId}")
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, node.uniqueNodeId))
   }
 }
