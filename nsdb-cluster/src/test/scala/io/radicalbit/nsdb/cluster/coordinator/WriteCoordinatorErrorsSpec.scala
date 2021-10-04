@@ -18,13 +18,13 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.pattern.ask
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.actors.PublisherActor
-import io.radicalbit.nsdb.cluster.actor.MetricsDataActor
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetWriteLocations
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.WriteLocationsGot
+import io.radicalbit.nsdb.cluster.coordinator.MockedMetadataCoordinator._
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
@@ -40,8 +40,6 @@ import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import MockedMetadataCoordinator._
-import org.scalactic.source.Position
 
 class MockedMetadataCoordinator extends Actor with ActorLogging {
   lazy val shardingInterval = context.system.settings.config.getDuration("nsdb.sharding.interval")

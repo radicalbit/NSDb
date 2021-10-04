@@ -3,7 +3,7 @@ import akka.actor.{ActorContext, ActorRef}
 
 class NodeActorGuardianForTest extends NodeActorsGuardian {
 
-  override protected lazy val nodeId: String = selfNodeName
+  override protected lazy val nodeFsId: String = selfNodeName
 
   override def shutdownBehaviour(context: ActorContext, child: ActorRef) : Unit = context.stop(child)
 

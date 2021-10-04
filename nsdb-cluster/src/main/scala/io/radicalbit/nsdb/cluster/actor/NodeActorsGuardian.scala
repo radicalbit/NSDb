@@ -50,9 +50,9 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   private val nodeAddress = createNodeAddress(selfMember)
 
   protected lazy val selfNodeName: String = createNodeAddress(selfMember)
-  protected lazy val nodeId: String       = FileUtils.getOrCreateNodeId(selfNodeName, config.getString(NSDBMetadataPath))
+  protected lazy val nodeFsId: String       = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
 
-  protected lazy val node: NSDbNode = NSDbNode(nodeAddress, nodeId)
+  protected lazy val node: NSDbNode = NSDbNode(nodeAddress, nodeFsId)
 
   private val config = context.system.settings.config
 
@@ -61,16 +61,16 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   if (config.hasPath(StorageTmpPath))
     System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
 
-  protected def actorNameSuffix: String = NSDbNode(nodeAddress, nodeId).uniqueNodeId
+  protected def actorNameSuffix: String = NSDbNode(nodeAddress, nodeFsId).uniqueNodeId
 
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
-  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeId)
+  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeFsId)
 
   private lazy val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
 
-  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeId-$nodeAddress")
-  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeId-$nodeAddress")
+  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeFsId-$nodeAddress")
+  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeFsId-$nodeAddress")
 
   def shutdownBehaviour(context: ActorContext, child: ActorRef): Unit =
     context.system.terminate()
@@ -163,7 +163,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
       * scheduler that disseminate gossip message to all the cluster listener actors
       */
     context.system.scheduler.schedule(interval, interval) {
-      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(NSDbNode(nodeAddress, nodeId)))
+      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(NSDbNode(nodeAddress, nodeFsId)))
     }
 
     log.info(s"NodeActorGuardian is ready at ${self.path.name}")

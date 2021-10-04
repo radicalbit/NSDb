@@ -126,7 +126,7 @@ object FileUtils {
       }
 
   /**
-    * Creates (if not exists) a new unique id for a node and stores it in the file system.
+    * Creates (if not exists) a new unique file system id for a node and stores it in the file system.
     * An already existing name will be used instead.
     * This method must be executed on the local node.
     * @param address the node address. This information will be connotate the exception in case of an error.
@@ -134,7 +134,7 @@ object FileUtils {
     * @return the unique id for the current node.
     * @throws InvalidNodeIdException if multiple identifier are found.
     */
-  def getOrCreateNodeId(address: String, basePath: String): String = {
+  def getOrCreateNodeFsId(address: String, basePath: String): String = {
     Option(Paths.get(basePath).toFile.listFiles(new NodeIdFilter)).getOrElse(Array.empty) match {
       case Array() =>
         val newName = RandomStringUtils.randomAlphabetic(NODE_ID_LENGTH)

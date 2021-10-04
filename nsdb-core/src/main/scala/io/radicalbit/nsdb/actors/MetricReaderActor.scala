@@ -16,9 +16,6 @@
 
 package io.radicalbit.nsdb.actors
 
-import java.math.{MathContext, RoundingMode}
-import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef, PoisonPill, Props, Terminated}
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
@@ -36,6 +33,9 @@ import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.statement.StatementParser._
 import io.radicalbit.nsdb.util.ErrorManagementUtils
 
+import java.math.{MathContext, RoundingMode}
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /**
@@ -88,7 +88,14 @@ class MetricReaderActor(val basePath: String, node: NSDbNode, val db: String, va
   private def getShardReaderActor(location: Location): Option[ActorRef] = actors.get(location)
 
   private def actorName(location: Location) =
-    s"shard_reader-${location.node.nodeFsId}-${location.metric}-${location.from}-${location.to}"
+    s"shard_reader-${location.node.nodeAddress}-${location.node.nodeFsId}-${location.metric}-${location.from}-${location.to}"
+
+  private def location(actorName: String): Option[Location] =
+    actorName.split("-").takeRight(5) match {
+      case Array(nodeAddress, nodeFsId, metric, from, to) =>
+        Some(Location(metric, NSDbNode(nodeAddress, nodeFsId), from.toLong, to.toLong))
+      case _ => None
+    }
 
   /**
     * Retrieve all the shard actors of a metrics given a set of locations.
@@ -250,10 +257,10 @@ class MetricReaderActor(val basePath: String, node: NSDbNode, val db: String, va
     */
   def readOps: Receive = {
     case Terminated(actor) =>
-//      location(actor.path.name).foreach { location =>
-//        log.debug("removing not used actor for location", location)
-//        actors -= location
-//      }
+      location(actor.path.name).foreach { location =>
+        log.debug("removing not used actor for location", location)
+        actors -= location
+      }
     case msg @ GetCountWithLocations(_, ns, metric, locations) =>
       Future
         .sequence(actorsForLocations(locations).map {

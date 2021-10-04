@@ -46,9 +46,7 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   MetricsDataActorUnSubscribed,
   PublisherUnSubscribed
 }
-import io.radicalbit.nsdb.util.FileUtils.NODE_ID_LENGTH
 import io.radicalbit.nsdb.util.{ErrorManagementUtils, FileUtils, FutureRetryUtility}
-import org.apache.commons.lang3.RandomStringUtils
 
 import java.nio.file.{Files, NoSuchFileException, Paths}
 import java.util.concurrent.TimeUnit
@@ -67,7 +65,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   protected lazy val cluster           = Cluster(context.system)
   private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
   protected lazy val selfNodeName      = createNodeAddress(cluster.selfMember)
-  protected lazy val nodeId            = FileUtils.getOrCreateNodeId(selfNodeName, config.getString(NSDBMetadataPath))
+  protected lazy val nodeFsId            = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -128,7 +126,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   }
 
   private def unsubscribeNode(otherNodeId: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
-    log.info(s"unsubscribing node $otherNodeId from node $nodeId")
+    log.info(s"unsubscribing node $otherNodeId from node $nodeFsId")
     (for {
       NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.parent ? GetNodeChildActors)
         .mapTo[NodeChildActorsGot]
@@ -151,9 +149,9 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   def receive: Receive = {
     case MemberUp(member) if member == cluster.selfMember =>
-      log.info(s"Member with nodeId $nodeId and address ${member.address} is Up")
+      log.info(s"Member with nodeId $nodeFsId and address ${member.address} is Up")
 
-      val node = NSDbNode(createNodeAddress(member), nodeId)
+      val node = NSDbNode(createNodeAddress(member), nodeFsId)
 
       val nodeActorsGuardian = context.parent
       (for {
@@ -165,7 +163,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
           val locationsToAdd: Seq[LocationWithCoordinates] =
             retrieveLocationsToAdd(node).diff(outdatedLocations.locations)
 
-          log.info(s"locations to add from node $nodeId \t$locationsToAdd")
+          log.info(s"locations to add from node $nodeFsId \t$locationsToAdd")
 
           val locationsGroupedBy: Map[(String, String), Seq[LocationWithCoordinates]] = locationsToAdd.groupBy {
             case LocationWithCoordinates(database, namespace, _) => (database, namespace)
@@ -190,7 +188,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
           case Success(
               (NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor),
                (success, failures))) if failures.isEmpty =>
-            log.info(s"location ${success} successfully added for node $nodeId")
+            log.info(s"location ${success} successfully added for node $nodeFsId")
 
             val interval =
               FiniteDuration(context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),

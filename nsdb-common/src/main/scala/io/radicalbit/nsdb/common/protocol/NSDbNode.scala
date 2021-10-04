@@ -16,6 +16,12 @@
 
 package io.radicalbit.nsdb.common.protocol
 
+/**
+  * A NSDb node must contain an identifier associated to the akka cluster address
+  * and an identifier associated to the file system, i.e. the concrete volume in which shards are stored.
+  * @param nodeAddress the akka cluster node address.
+  * @param nodeFsId the file system identifier.
+  */
 case class NSDbNode(nodeAddress: String, nodeFsId: String) extends NSDbSerializable {
   def uniqueNodeId: String = s"${nodeAddress}_$nodeFsId"
 }
