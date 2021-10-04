@@ -39,6 +39,7 @@ class ReadCoordinatorClusterSpec extends MiniClusterSpec {
 
     LongMetric.testRecords.map(_.asApiBit(db, namespace, LongMetric.name)).foreach { bit =>
       eventually {
+        assert(Await.result(withRandomNodeConnection{_.write(bit)}, 10.seconds).errors.isEmpty)
         assert(Await.result(withRandomNodeConnection{_.write(bit)}, 10.seconds).completedSuccessfully)
       }
     }

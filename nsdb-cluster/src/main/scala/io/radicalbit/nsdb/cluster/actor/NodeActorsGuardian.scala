@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.util.concurrent.{TimeUnit, TimeoutException}
 import akka.actor.SupervisorStrategy.{Resume, Stop}
 import akka.actor.{ActorContext, ActorRef, _}
 import akka.cluster.Cluster
@@ -28,12 +27,15 @@ import io.radicalbit.nsdb.actors.supervision.OneForOneWithRetriesStrategy
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeAddress
+import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.util.FileUtils
 
+import java.util.concurrent.{TimeUnit, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
 
 /**
@@ -57,7 +59,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   if (config.hasPath(StorageTmpPath))
     System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
 
-  protected val actorNameSuffix = s"${nodeAddress}_$nodeId"
+  protected def actorNameSuffix: String = NSDbNode(nodeAddress, nodeId).uniqueNodeId
 
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
@@ -141,14 +143,13 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   protected lazy val metricsDataActor: ActorRef = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath, null, commitLogCoordinator)
+      .props(indexBasePath, NSDbClusterSnapshot(context.system).getNode(nodeAddress), commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$actorNameSuffix"
   )
 
   override def preStart(): Unit = {
-    import context.dispatcher
 
     val interval = FiniteDuration(
       context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),

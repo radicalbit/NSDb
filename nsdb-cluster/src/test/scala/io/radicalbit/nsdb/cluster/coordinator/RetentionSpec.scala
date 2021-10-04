@@ -124,10 +124,10 @@ class RetentionSpec
   )
 
   override def beforeAll = {
-    val node = NSDbNode("localhost", "nodeId", "1")
+    val node = NSDbNode("localhost", "nodeId")
     NSDbClusterSnapshot(system).addNode(node)
 
-    val nodesId = awaitAssert {
+    awaitAssert {
       val nodes = NSDbClusterSnapshot(system).nodes
       nodes.size shouldBe 1
     }

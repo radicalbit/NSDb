@@ -16,16 +16,16 @@
 
 package io.radicalbit.nsdb.common.protocol
 
-case class NSDbNode(nodeAddress: String, nodeFsId: String, nodeUuid: String) extends NSDbSerializable {
-  def uniqueNodeId: String = s"${nodeAddress}_${nodeFsId}_$nodeUuid"
+case class NSDbNode(nodeAddress: String, nodeFsId: String) extends NSDbSerializable {
+  def uniqueNodeId: String = s"${nodeAddress}_$nodeFsId"
 }
 
 object NSDbNode {
 
   def fromUniqueId(uniqueIdentifier: String): NSDbNode = {
     val components = uniqueIdentifier.split('_')
-    NSDbNode(components(0), components(1), components(2))
+    NSDbNode(components(0), components(1))
   }
 
-  def empty: NSDbNode = NSDbNode("", "", "")
+  def empty: NSDbNode = NSDbNode("", "")
 }

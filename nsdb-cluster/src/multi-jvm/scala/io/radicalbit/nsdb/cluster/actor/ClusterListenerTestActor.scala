@@ -19,7 +19,7 @@ abstract class ClusterListenerTestActor
 
   override protected lazy val nodeId: String = selfNodeName
 
-  val node = NSDbNode("nodeAddress", nodeId, "1")
+  val node = NSDbNode("nodeAddress", nodeId)
 
   override def receive: Receive = super.receive orElse {
     case SubscribeAck(subscribe) => log.info("subscribe {}", subscribe)

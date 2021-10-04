@@ -37,9 +37,9 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extensio
     * @param address the actual address of the node.
     * @param nodeId the node unique identifier.
     */
-  def addNode(address: String, nodeId: String, uniqueNodeId: String): NSDbNode = {
-    system.log.debug(s"adding node with address $address to $threadSafeMap")
-    threadSafeMap.put(address, NSDbNode(address, nodeId, uniqueNodeId))
+  def addNode(address: String, nodeId: String): NSDbNode = {
+    system.log.debug(s"adding node with address $address and $nodeId to $threadSafeMap")
+    threadSafeMap.put(address, NSDbNode(address, nodeId))
   }
 
   def addNode(node: NSDbNode): NSDbNode = {

@@ -53,8 +53,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
   val nodeActorGuardian: ActorRef = system.actorOf(Props[NodeActorGuardianForTest], name = s"guardian_${nodeName}_$nodeName")
 
-  val nsdbNode1 = NSDbNode("localhost_2552", "node1", "1")
-  val nsdbNode2 = NSDbNode("localhost_2553", "node2", "2")
+  val nsdbNode1 = NSDbNode("localhost_2552", "node1")
+  val nsdbNode2 = NSDbNode("localhost_2553", "node2")
 
   private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
 

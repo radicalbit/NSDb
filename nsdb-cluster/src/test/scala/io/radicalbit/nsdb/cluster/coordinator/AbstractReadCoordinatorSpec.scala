@@ -56,7 +56,7 @@ abstract class AbstractReadCoordinatorSpec
   val db        = "db"
   val namespace = "registry"
 
-  val node               = NSDbNode("localhost", "node1", "1")
+  val node               = NSDbNode("localhost", "node1")
   val readNodesSelection = new LocalityReadNodesSelection("notImportant")
 
   val schemaCoordinator =

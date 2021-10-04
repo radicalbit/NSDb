@@ -72,8 +72,8 @@ class ReplicatedMetadataCacheSpec
 
   private val replicatedCache = system.actorOf(Props[ReplicatedMetadataCache])
 
-  val nsdbNode1 = NSDbNode("localhost_2552", "node1", "1")
-  val nsdbNode2 = NSDbNode("localhost_2553", "node2", "2")
+  val nsdbNode1 = NSDbNode("localhost_2552", "node1")
+  val nsdbNode2 = NSDbNode("localhost_2553", "node2")
 
   "ReplicatedMetadataCache" must {
 
@@ -449,8 +449,8 @@ class ReplicatedMetadataCacheSpec
       val namespace = "namespace2"
       val metric   = "metric2"
 
-      val nsdbNode10 = NSDbNode("localhost_2552", "node10", "1")
-      val nsdbNode20 = NSDbNode("localhost_2552", "node20", "1")
+      val nsdbNode10 = NSDbNode("localhost_2552", "node10")
+      val nsdbNode20 = NSDbNode("localhost_2552", "node20")
 
       runOn(node1) {
         for (i ← 10 to 20) {

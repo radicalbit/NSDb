@@ -77,7 +77,7 @@ class MetricPerformerActorSpec
 
   indexerPerformerActor.underlyingActor.supervisorStrategy
 
-  val node = NSDbNode("node1", "node1", "node1")
+  val node = NSDbNode("node1", "node1")
 
   val errorLocation               = Location("IndexerPerformerActorMetric", node, 1, 1)
   val unstableRecoverableLocation = Location("IndexerPerformerActorMetric", node, 2, 2)

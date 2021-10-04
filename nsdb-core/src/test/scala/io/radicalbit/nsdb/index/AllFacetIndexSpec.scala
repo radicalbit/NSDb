@@ -35,7 +35,7 @@ class AllFacetIndexSpec extends NSDbSpec with OneInstancePerTest {
     "Combine Results for temporal average calculation" in {
       val basePath = s"target/test_index/${UUID.randomUUID}"
 
-      val location = Location("metric", NSDbNode("node", "node", "node"), 0, 100)
+      val location = Location("metric", NSDbNode("node", "node"), 0, 100)
       val directory =
         new MMapDirectory(Paths.get(basePath, "db", "namespace", "shards", s"${location.shardName}"))
 

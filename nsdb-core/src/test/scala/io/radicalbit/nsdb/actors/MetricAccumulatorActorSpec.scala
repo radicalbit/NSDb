@@ -50,7 +50,7 @@ class MetricAccumulatorActorSpec()
   val namespace = "namespace"
   val metric    = "shardActorMetric"
   val nodeName  = "node1"
-  val node      = NSDbNode(nodeName, nodeName, nodeName)
+  val node      = NSDbNode(nodeName, nodeName)
 
   val metricsReaderActor =
     system.actorOf(RoundRobinPool(1, None).props(MetricReaderActor.props(basePath, node, db, namespace)))
