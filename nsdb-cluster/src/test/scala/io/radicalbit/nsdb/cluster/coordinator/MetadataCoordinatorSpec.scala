@@ -81,8 +81,8 @@ class MetadataCoordinatorSpec
 
   implicit val timeout = Timeout(10 seconds)
 
-  val node1 = NSDbNode("localhost_2552", "node_01")
-  val node2 = NSDbNode("localhost_2553", "node_02")
+  val node1 = NSDbNode("localhost_2552", "node_01", "volatile1")
+  val node2 = NSDbNode("localhost_2553", "node_02", "volatile2")
 
   override def beforeAll = {
     NSDbClusterSnapshot(system).addNode(node1)

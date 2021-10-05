@@ -26,9 +26,9 @@ class LocalityReadNodesSelectionSpec extends NSDbSpec {
     Location("metric", node, i, i + 1)
   }
 
-  val thisNode  = NSDbNode("thisNode", "thisNode")
-  val thatNode  = NSDbNode("thatNode", "thatNode")
-  val thatNode2 = NSDbNode("thatNode2", "thatNode2")
+  val thisNode  = NSDbNode("thisNode", "thisNode", "thisVolatile")
+  val thatNode  = NSDbNode("thatNode", "thatNode", "thatVolatile")
+  val thatNode2 = NSDbNode("thatNode2", "thatNode2", "thatVolatile2")
 
   val localityReadNodesSelection = new LocalityReadNodesSelection(thisNode.uniqueNodeId)
 

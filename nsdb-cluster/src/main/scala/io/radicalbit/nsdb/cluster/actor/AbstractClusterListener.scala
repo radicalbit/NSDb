@@ -28,6 +28,7 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster._
 import io.radicalbit.nsdb.cluster.actor.NSDbMetricsEvents._
+import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.UpdateVolatileId
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   AddLocations,
   GetOutdatedLocations,
@@ -46,7 +47,9 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   MetricsDataActorUnSubscribed,
   PublisherUnSubscribed
 }
+import io.radicalbit.nsdb.util.FileUtils.NODE_FS_ID_LENGTH
 import io.radicalbit.nsdb.util.{ErrorManagementUtils, FileUtils, FutureRetryUtility}
+import org.apache.commons.lang3.RandomStringUtils
 
 import java.nio.file.{Files, NoSuchFileException, Paths}
 import java.util.concurrent.TimeUnit
@@ -65,7 +68,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   protected lazy val cluster           = Cluster(context.system)
   private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
   protected lazy val selfNodeName      = createNodeAddress(cluster.selfMember)
-  protected lazy val nodeFsId            = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
+  protected lazy val nodeFsId          = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -93,8 +96,6 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   implicit val scheduler: Scheduler = context.system.scheduler
   implicit val _log: LoggingAdapter = log
-
-  private var nodeUuid: String = _
 
   def enableClusterMetricsExtension: Boolean
 
@@ -151,10 +152,13 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
     case MemberUp(member) if member == cluster.selfMember =>
       log.info(s"Member with nodeId $nodeFsId and address ${member.address} is Up")
 
-      val node = NSDbNode(createNodeAddress(member), nodeFsId)
+      val volatileId = RandomStringUtils.randomAlphabetic(VOLATILE_ID_LENGTH)
+
+      val node = NSDbNode(createNodeAddress(member), nodeFsId, volatileId)
 
       val nodeActorsGuardian = context.parent
       (for {
+        _ <- nodeActorsGuardian ? UpdateVolatileId(volatileId)
         children @ NodeChildActorsGot(metadataCoordinator, _, _, _) <- (nodeActorsGuardian ? GetNodeChildActors)
           .mapTo[NodeChildActorsGot]
         outdatedLocations <- (children.metadataCoordinator ? GetOutdatedLocations).mapTo[OutdatedLocationsGot]
@@ -215,7 +219,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
       val nodeName       = createNodeAddress(member)
       val nodeIdToRemove = NSDbClusterSnapshot(context.system).getNode(nodeName)
 
-      unsubscribeNode(nodeIdToRemove.nodeFsId)
+      unsubscribeNode(nodeIdToRemove.uniqueNodeId)
 
       NSDbClusterSnapshot(context.system).removeNode(nodeName)
     case _: MemberEvent => // ignore

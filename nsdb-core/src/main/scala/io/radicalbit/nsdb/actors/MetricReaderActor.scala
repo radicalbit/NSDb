@@ -91,9 +91,9 @@ class MetricReaderActor(val basePath: String, node: NSDbNode, val db: String, va
     s"shard_reader-${location.node.nodeAddress}-${location.node.nodeFsId}-${location.metric}-${location.from}-${location.to}"
 
   private def location(actorName: String): Option[Location] =
-    actorName.split("-").takeRight(5) match {
-      case Array(nodeAddress, nodeFsId, metric, from, to) =>
-        Some(Location(metric, NSDbNode(nodeAddress, nodeFsId), from.toLong, to.toLong))
+    actorName.split("-").takeRight(6) match {
+      case Array(nodeAddress, nodeFsId, volatileNodeId, metric, from, to) =>
+        Some(Location(metric, NSDbNode(nodeAddress, nodeFsId, volatileNodeId), from.toLong, to.toLong))
       case _ => None
     }
 

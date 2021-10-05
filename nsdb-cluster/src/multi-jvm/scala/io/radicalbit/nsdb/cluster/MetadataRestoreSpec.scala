@@ -36,14 +36,14 @@ class MetadataRestoreSpecMultiJvmNode2 extends MetadataRestoreSpec {}
 class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMultiNodeSpec with ImplicitSender {
   override def initialParticipants: Int = roles.size
 
-  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
-  private def schemaCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/schema-coordinator_${nodeName}_$nodeName"
+  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_${nodeName}_$nodeName"
+  private def schemaCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/schema-coordinator_${nodeName}_${nodeName}_$nodeName"
 
   system.actorOf(Props[DatabaseActorsGuardian], "guardian")
 
   val selfMember: Member = cluster.selfMember
   val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-  val nodeActorGuardian: ActorRef = system.actorOf(Props[NodeActorGuardianForTest], name = s"guardian_${nodeName}_$nodeName")
+  val nodeActorGuardian: ActorRef = system.actorOf(NodeActorGuardianForTest.props(nodeName), name = s"guardian_${nodeName}_$nodeName")
 
   "Metadata system" must {
 

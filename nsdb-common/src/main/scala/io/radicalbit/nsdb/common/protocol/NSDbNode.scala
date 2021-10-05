@@ -21,17 +21,18 @@ package io.radicalbit.nsdb.common.protocol
   * and an identifier associated to the file system, i.e. the concrete volume in which shards are stored.
   * @param nodeAddress the akka cluster node address.
   * @param nodeFsId the file system identifier.
+  * @param volatileNodeUuid needed to be able to distinguish different incarnations of a node with same nodeAddress and nodeFsId.
   */
-case class NSDbNode(nodeAddress: String, nodeFsId: String) extends NSDbSerializable {
-  def uniqueNodeId: String = s"${nodeAddress}_$nodeFsId"
+case class NSDbNode(nodeAddress: String, nodeFsId: String, volatileNodeUuid: String) extends NSDbSerializable {
+  def uniqueNodeId: String = s"${nodeAddress}_${nodeFsId}_$volatileNodeUuid"
 }
 
 object NSDbNode {
 
   def fromUniqueId(uniqueIdentifier: String): NSDbNode = {
     val components = uniqueIdentifier.split('_')
-    NSDbNode(components(0), components(1))
+    NSDbNode(components(0), components(1), components(2))
   }
 
-  def empty: NSDbNode = NSDbNode("", "")
+  def empty: NSDbNode = NSDbNode("", "", "")
 }

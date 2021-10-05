@@ -58,8 +58,8 @@ class MockedMetadataCoordinator extends Actor with ActorLogging {
 }
 
 object MockedMetadataCoordinator {
-  val node1 = NSDbNode("localhost_2552", "node1")
-  val node2 = NSDbNode("localhost_2553", "node2")
+  val node1 = NSDbNode("localhost_2552", "node1", "volatile1")
+  val node2 = NSDbNode("localhost_2553", "node2", "volatile2")
 }
 
 class WriteCoordinatorErrorsSpec
