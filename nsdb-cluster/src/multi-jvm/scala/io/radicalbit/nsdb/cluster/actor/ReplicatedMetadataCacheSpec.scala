@@ -6,11 +6,11 @@ import akka.cluster.ddata.Replicator.{GetReplicaCount, ReplicaCount}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.STMultiNodeSpec
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
-import io.radicalbit.nsdb.STMultiNodeSpec
 import io.radicalbit.nsdb.common.protocol.NSDbNode
+import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 
 import scala.concurrent.duration._
 
@@ -543,6 +543,40 @@ class ReplicatedMetadataCacheSpec
             LocationWithCoordinates("db1", "namespace1", location),
             LocationWithCoordinates("db", "namespace", location)
           )
+      }
+    }
+
+    "manage nodes blacklist" in {
+
+      replicatedCache ! GetNodesBlackList
+
+      awaitAssert {
+        expectMsgType[NodesBlackListGot].blacklist.size shouldBe 0
+      }
+
+      enterBarrier("no-nodes-blacklist")
+
+      val node1 = NSDbNode("address", "fs", "volatile")
+      val node2 = NSDbNode("address2", "fs2", "volatile2")
+
+      awaitAssert {
+        replicatedCache ! AddNodeToBlackList(node1)
+        val outdatedLocationAdded = expectMsgType[NodeToBlackListAdded]
+        outdatedLocationAdded.node shouldBe node1
+      }
+
+      awaitAssert {
+        replicatedCache ! AddNodeToBlackList(node2)
+        val outdatedLocationAdded = expectMsgType[NodeToBlackListAdded]
+        outdatedLocationAdded.node shouldBe node2
+      }
+
+      enterBarrier("after-add-nodes-in-blacklist")
+
+      awaitAssert {
+        replicatedCache ! GetNodesBlackList
+        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListGot]
+        outdatedLocationsFromCacheGot.blacklist shouldBe Set(node1, node2)
       }
     }
 
