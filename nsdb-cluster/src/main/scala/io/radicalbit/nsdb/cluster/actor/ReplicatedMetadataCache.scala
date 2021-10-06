@@ -30,6 +30,7 @@ import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import io.radicalbit.nsdb.util.ErrorManagementUtils
 
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 object ReplicatedMetadataCache {
 
@@ -152,10 +153,13 @@ object ReplicatedMetadataCache {
   final case class NodeToBlackListAdded(node: NSDbNode)                     extends AddNodeToBlackListResponse
   final case class AddNodeToBlackListFailed(node: NSDbNode, reason: String) extends AddNodeToBlackListResponse
 
-  final case object GetNodesBlackList                          extends NSDbSerializable
-  sealed trait GetNodesBlackListResponse                       extends NSDbSerializable
-  final case class NodesBlackListGot(blacklist: Set[NSDbNode]) extends GetNodesBlackListResponse
-  final case class GetNodesBlackListFailed(reason: String)     extends GetNodesBlackListResponse
+  final case class NSDbNodeWithTtl(node: NSDbNode, createdAt: Long) extends NSDbSerializable
+  final case object GetNodesBlackList                               extends NSDbSerializable
+  sealed trait GetNodesBlackListResponse                            extends NSDbSerializable
+  final case class NodesBlackListGot(blacklist: Set[NSDbNode])      extends GetNodesBlackListResponse
+  final case class GetNodesBlackListFailed(reason: String)          extends GetNodesBlackListResponse
+
+  case object CheckBlackListTtl extends NSDbSerializable
 }
 
 /**
@@ -215,12 +219,23 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
   /**
     * Creates a [[ORSetKey]] for nodes blacklist
     */
-  private val nodesBlacklistKey: ORSetKey[NSDbNode] = ORSetKey(s"nodes-blacklist")
+  private val nodesBlacklistKey: ORSetKey[NSDbNodeWithTtl] = ORSetKey(s"nodes-blacklist")
 
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
+
+  lazy val blackListCheckInterval: FiniteDuration =
+    FiniteDuration(context.system.settings.config.getDuration("nsdb.blacklist.check.interval").toNanos, TimeUnit.NANOSECONDS)
+
+  lazy val blackListTtl: Long =
+    FiniteDuration(context.system.settings.config.getDuration("nsdb.blacklist.ttl").toNanos, TimeUnit.NANOSECONDS).toMillis
+
   import context.dispatcher
+
+  override def preStart(): Unit = {
+    context.system.scheduler.scheduleAtFixedRate(blackListCheckInterval, blackListCheckInterval, self, null)
+  }
 
   def receive: Receive = {
     case PutCoordinateInCache(db, namespace, metric) =>
@@ -340,8 +355,11 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
             AddOutdatedLocationFailed(db, namespace, location)
         }
         .pipeTo(sender)
+    case CheckBlackListTtl =>
+
     case AddNodeToBlackList(node) =>
-      (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(_ :+ node))
+      (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(
+        _ :+ NSDbNodeWithTtl(node, System.currentTimeMillis)))
         .map {
           case UpdateSuccess(_, _) =>
             NodeToBlackListAdded(node)
@@ -510,8 +528,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         .map(_.metric)
       replyTo ! MetricsFromCacheGot(db, namespace, elements)
     case g @ GetSuccess(_, Some(NodesBlackListRequest(replyTo))) =>
-      val elements = g.dataValue.asInstanceOf[ORSet[NSDbNode]].elements
-      replyTo ! NodesBlackListGot(elements)
+      val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
+      replyTo ! NodesBlackListGot(elements.map(_.node))
     case NotFound(_, Some(MetricLocationsRequest(key, replyTo))) =>
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, Seq.empty)
     case NotFound(_, Some(MetricLocationsInNodeRequest(db, namespace, metric, _, replyTo))) =>
