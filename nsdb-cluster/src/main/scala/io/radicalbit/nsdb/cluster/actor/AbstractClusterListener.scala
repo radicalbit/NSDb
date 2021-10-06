@@ -47,7 +47,6 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
   MetricsDataActorUnSubscribed,
   PublisherUnSubscribed
 }
-import io.radicalbit.nsdb.util.FileUtils.NODE_FS_ID_LENGTH
 import io.radicalbit.nsdb.util.{ErrorManagementUtils, FileUtils, FutureRetryUtility}
 import org.apache.commons.lang3.RandomStringUtils
 

@@ -57,7 +57,12 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private val indexBasePath = config.getString(StorageIndexPath)
 
-  protected var node: NSDbNode = _
+  private val heartbeatInterval = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
+
+  protected var node: NSDbNode                   = _
+  protected var heartBeatDispatcher: Cancellable = _
 
   if (config.hasPath(StorageTmpPath))
     System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
@@ -152,27 +157,20 @@ class NodeActorsGuardian extends Actor with ActorLogging {
     s"metrics-data-actor_$actorNameSuffix"
   )
 
-  override def preStart(): Unit = {
-
-    val interval = FiniteDuration(
-      context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS)
-
-//    import context.dispatcher
-
-//    /**
-//      * scheduler that disseminate gossip message to all the cluster listener actors
-//      */
-//    context.system.scheduler.schedule(interval, interval) {
-//      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(NSDbNode(nodeAddress, nodeFsId)))
-//    }
-
+  override def preStart(): Unit =
     log.info(s"NodeActorGuardian is ready at ${self.path.name}")
-  }
 
   def receive: Receive = {
     case UpdateVolatileId(volatileId) =>
       node = NSDbNode(nodeAddress, nodeFsId, volatileId)
+
+      import context.dispatcher
+
+      if (heartBeatDispatcher != null) heartBeatDispatcher.cancel()
+
+      heartBeatDispatcher = context.system.scheduler.schedule(heartbeatInterval, heartbeatInterval) {
+        mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(node))
+      }
       sender() ! VolatileIdUpdated(node)
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
