@@ -17,9 +17,8 @@
 package io.radicalbit.nsdb.index
 
 import java.util.UUID
-
 import io.radicalbit.nsdb.common._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.test.NSDbSpec
 import org.apache.lucene.document.LongPoint
@@ -33,7 +32,7 @@ class FacetIndexTest extends NSDbSpec with OneInstancePerTest {
       basePath = "target",
       db = "test_index",
       namespace = "test_facet_index",
-      location = Location(metric = UUID.randomUUID.toString, node = "node1", from = 0, to = Long.MaxValue),
+      location = Location(metric = UUID.randomUUID.toString, node = NSDbNode.empty, from = 0, to = Long.MaxValue),
       indexStorageStrategy = StorageStrategy.Memory
     )
 

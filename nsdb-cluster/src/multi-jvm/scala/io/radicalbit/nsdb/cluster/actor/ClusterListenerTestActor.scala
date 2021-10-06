@@ -6,6 +6,7 @@ import akka.cluster.pubsub.DistributedPubSubMediator.SubscribeAck
 import io.radicalbit.nsdb.cluster.actor.ClusterListenerTestActor._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{NodeMetadataRemoved, RemoveNodeMetadataFailed}
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 
 abstract class ClusterListenerTestActor
@@ -16,17 +17,19 @@ abstract class ClusterListenerTestActor
 
   override def enableClusterMetricsExtension: Boolean = false
 
-  override protected lazy val nodeId: String = selfNodeName
+  override protected lazy val nodeFsId: String = selfNodeName
+
+  val node = NSDbNode("nodeAddress", nodeFsId)
 
   override def receive: Receive = super.receive orElse {
     case SubscribeAck(subscribe) => log.info("subscribe {}", subscribe)
   }
 
-  override def retrieveLocationsToAdd: List[LocationWithCoordinates] = testType match {
+  override def retrieveLocationsToAdd(node: NSDbNode): List[LocationWithCoordinates] = testType match {
     case SuccessTest =>
       List.empty
     case FailureTest =>
-      List(LocationWithCoordinates("failure", "namespace", Location("metric", "node", 0L, 1L)))
+      List(LocationWithCoordinates("failure", "namespace", Location("metric", node, 0L, 1L)))
   }
 
   override def onSuccessBehaviour(readCoordinator: ActorRef,

@@ -57,6 +57,7 @@ trait NSDbActors {
       name = "databaseActorGuardianProxy"
     )
 
-    system.actorOf(Props[NodeActorsGuardian], createNodeActorGuardianName(createNodeName(Cluster(system).selfMember)))
+    system.actorOf(Props[NodeActorsGuardian],
+                   createNodeActorGuardianName(createNodeAddress(Cluster(system).selfMember)))
   }
 }

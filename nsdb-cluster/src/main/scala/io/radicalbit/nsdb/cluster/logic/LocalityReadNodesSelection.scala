@@ -30,10 +30,10 @@ class LocalityReadNodesSelection(localNode: String) extends ReadNodesSelection {
       .groupBy(l => (l.from, l.to))
       .map {
         case ((_, _), locations) if locations.size > 1 =>
-          locations.find(_.node == localNode).getOrElse(locations.head)
-        case ((_, _), locations) => locations.minBy(_.node)
+          locations.find(_.node.uniqueNodeId == localNode).getOrElse(locations.head)
+        case ((_, _), locations) => locations.minBy(_.node.uniqueNodeId)
       }
       .toSeq
-      .groupBy(_.node)
+      .groupBy(_.node.uniqueNodeId)
   }
 }

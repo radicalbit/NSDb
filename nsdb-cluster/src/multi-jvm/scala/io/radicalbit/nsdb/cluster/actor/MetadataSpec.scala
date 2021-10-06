@@ -12,6 +12,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.common.model.MetricInfo
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetNodeChildActors, NodeChildActorsGot}
 
@@ -52,6 +53,9 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
   val nodeActorGuardian: ActorRef = system.actorOf(Props[NodeActorGuardianForTest], name = s"guardian_${nodeName}_$nodeName")
 
+  val nsdbNode1 = NSDbNode("localhost_2552", "node1")
+  val nsdbNode2 = NSDbNode("localhost_2553", "node2")
+
   private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_$nodeName"
 
   "Metadata system" must {
@@ -80,8 +84,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
           5.seconds)
 
         awaitAssert {
-          metadataCoordinator ! AddLocations("db", "namespace", Seq(Location("metric", "node-1", 0, 1)))
-          expectMsg(LocationsAdded("db", "namespace", Seq(Location("metric", "node-1", 0, 1))))
+          metadataCoordinator ! AddLocations("db", "namespace", Seq(Location("metric", nsdbNode1, 0, 1)))
+          expectMsg(LocationsAdded("db", "namespace", Seq(Location("metric", nsdbNode1, 0, 1))))
         }
       }
 
@@ -149,10 +153,10 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       enterBarrier("no-outdated-locations")
 
       val outdatedLocations = Seq(
-        LocationWithCoordinates("db", "namespace", Location("metric", "node1", 0,1)),
-        LocationWithCoordinates("db1", "namespace", Location("metric1", "node2", 1,4)),
-        LocationWithCoordinates("db", "namespace1", Location("metric", "node1", 0,1)),
-        LocationWithCoordinates("db", "namespaces", Location("metric", "node2", 0,1))
+        LocationWithCoordinates("db", "namespace", Location("metric", nsdbNode1, 0,1)),
+        LocationWithCoordinates("db1", "namespace", Location("metric1", nsdbNode2, 1,4)),
+        LocationWithCoordinates("db", "namespace1", Location("metric", nsdbNode1, 0,1)),
+        LocationWithCoordinates("db", "namespaces", Location("metric", nsdbNode2, 0,1))
       )
 
       metadataCoordinator ! AddOutdatedLocations(outdatedLocations)

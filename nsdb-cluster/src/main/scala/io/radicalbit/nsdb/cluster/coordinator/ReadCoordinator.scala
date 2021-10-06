@@ -101,10 +101,10 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
 
     Future
       .sequence(metricsDataActors.collect {
-        case (nodeId, actor) if uniqueLocationsByNode.isDefinedAt(nodeId) =>
+        case (uniqueNodeId, actor) if uniqueLocationsByNode.isDefinedAt(uniqueNodeId) =>
           actor ? ExecuteSelectStatement(statement,
                                          schema,
-                                         uniqueLocationsByNode.getOrElse(nodeId, Seq.empty),
+                                         uniqueLocationsByNode.getOrElse(uniqueNodeId, Seq.empty),
                                          timeRangeContext,
                                          timeContext,
                                          isSingleNode)
@@ -117,6 +117,7 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
         } else {
           val combinedResponsesFromNodes =
             rawResponses.asInstanceOf[Seq[SelectStatementExecuted]].flatMap(_.values)
+          log.debug(s"combined results from node $combinedResponsesFromNodes")
           SelectStatementExecuted(
             statement,
             if (isSingleNode) combinedResponsesFromNodes

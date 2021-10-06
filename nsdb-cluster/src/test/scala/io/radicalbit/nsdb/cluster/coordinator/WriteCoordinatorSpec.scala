@@ -46,17 +46,17 @@ class WriteCoordinatorSpec
   val namespace = "namespace"
 
   override def beforeAll: Unit = {
-    probe.send(writeCoordinatorActor, SubscribeCommitLogCoordinator(commitLogCoordinator, "nodeId"))
+    probe.send(writeCoordinatorActor, SubscribeCommitLogCoordinator(commitLogCoordinator, node.uniqueNodeId))
     awaitAssert {
       probe.expectMsgType[CommitLogCoordinatorSubscribed]
     }
 
-    probe.send(writeCoordinatorActor, SubscribeMetricsDataActor(metricsDataActor, "nodeId"))
+    probe.send(writeCoordinatorActor, SubscribeMetricsDataActor(metricsDataActor, node.uniqueNodeId))
     awaitAssert {
       probe.expectMsgType[MetricsDataActorSubscribed]
     }
 
-    probe.send(writeCoordinatorActor, SubscribePublisher(publisherActor, "nodeId"))
+    probe.send(writeCoordinatorActor, SubscribePublisher(publisherActor, node.uniqueNodeId))
     awaitAssert {
       probe.expectMsgType[PublisherSubscribed]
     }

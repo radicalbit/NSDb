@@ -17,7 +17,7 @@
 package io.radicalbit.nsdb.cluster.extension
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.NSDbNode
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 
 import scala.collection.JavaConverters._
 
@@ -38,8 +38,13 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extensio
     * @param nodeId the node unique identifier.
     */
   def addNode(address: String, nodeId: String): NSDbNode = {
-    system.log.debug(s"adding node with address $address to $threadSafeMap")
+    system.log.debug(s"adding node with address $address and $nodeId to $threadSafeMap")
     threadSafeMap.put(address, NSDbNode(address, nodeId))
+  }
+
+  def addNode(node: NSDbNode): NSDbNode = {
+    system.log.debug(s"adding node with address ${node.nodeAddress} to $threadSafeMap")
+    threadSafeMap.put(node.nodeAddress, node)
   }
 
   /**
@@ -56,7 +61,7 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extensio
     */
   def nodes: Iterable[NSDbNode] = threadSafeMap.asScala.values
 
-  def getId(address: String): NSDbNode = threadSafeMap.get(address)
+  def getNode(address: String): NSDbNode = threadSafeMap.get(address)
 }
 
 object NSDbClusterSnapshot extends ExtensionId[NSDbClusterSnapshotExtension] with ExtensionIdProvider {

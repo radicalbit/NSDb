@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.util.concurrent.{TimeUnit, TimeoutException}
 import akka.actor.SupervisorStrategy.{Resume, Stop}
 import akka.actor.{ActorContext, ActorRef, _}
 import akka.cluster.Cluster
@@ -27,13 +26,16 @@ import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.supervision.OneForOneWithRetriesStrategy
 import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster.coordinator._
-import io.radicalbit.nsdb.cluster.createNodeName
+import io.radicalbit.nsdb.cluster.createNodeAddress
+import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.util.FileUtils
 
+import java.util.concurrent.{TimeUnit, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
 
 /**
@@ -45,10 +47,12 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private val mediator = DistributedPubSub(context.system).mediator
 
-  private val nodeAddress = createNodeName(selfMember)
+  private val nodeAddress = createNodeAddress(selfMember)
 
-  protected lazy val selfNodeName: String = createNodeName(selfMember)
-  protected lazy val nodeId: String       = FileUtils.getOrCreateNodeId(selfNodeName, config.getString(NSDBMetadataPath))
+  protected lazy val selfNodeName: String = createNodeAddress(selfMember)
+  protected lazy val nodeFsId: String       = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
+
+  protected lazy val node: NSDbNode = NSDbNode(nodeAddress, nodeFsId)
 
   private val config = context.system.settings.config
 
@@ -57,16 +61,16 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   if (config.hasPath(StorageTmpPath))
     System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
 
-  protected val actorNameSuffix = s"${nodeAddress}_$nodeId"
+  protected def actorNameSuffix: String = NSDbNode(nodeAddress, nodeFsId).uniqueNodeId
 
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
-  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeId)
+  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeFsId)
 
   private lazy val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
 
-  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeId-$nodeAddress")
-  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeId-$nodeAddress")
+  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeFsId-$nodeAddress")
+  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeFsId-$nodeAddress")
 
   def shutdownBehaviour(context: ActorContext, child: ActorRef): Unit =
     context.system.terminate()
@@ -87,7 +91,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   }
 
   def createClusterListener: ActorRef =
-    context.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeName(selfMember)}")
+    context.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeAddress(selfMember)}")
 
   private val clusterListener: ActorRef = createClusterListener
 
@@ -141,24 +145,25 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   protected lazy val metricsDataActor: ActorRef = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath, nodeAddress, commitLogCoordinator)
+      .props(indexBasePath, NSDbClusterSnapshot(context.system).getNode(nodeAddress), commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$actorNameSuffix"
   )
 
   override def preStart(): Unit = {
-    import context.dispatcher
 
     val interval = FiniteDuration(
       context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
       TimeUnit.SECONDS)
 
+    import context.dispatcher
+
     /**
       * scheduler that disseminate gossip message to all the cluster listener actors
       */
     context.system.scheduler.schedule(interval, interval) {
-      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(nodeId, nodeAddress))
+      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(NSDbNode(nodeAddress, nodeFsId)))
     }
 
     log.info(s"NodeActorGuardian is ready at ${self.path.name}")
@@ -168,13 +173,13 @@ class NodeActorsGuardian extends Actor with ActorLogging {
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
     case GetMetricsDataActors =>
-      log.debug("gossiping metric data actors from node {}", nodeId)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, nodeId))
+      log.debug(s"gossiping metric data actors from node ${node.uniqueNodeId}")
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, node.uniqueNodeId))
     case GetCommitLogCoordinators =>
-      log.debug("gossiping commit logs for node {}", nodeId)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, nodeId))
+      log.debug(s"gossiping commit logs for node ${node.uniqueNodeId}")
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribeCommitLogCoordinator(commitLogCoordinator, node.uniqueNodeId))
     case GetPublishers =>
-      log.debug("gossiping publishers for node {}", nodeId)
-      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, nodeId))
+      log.debug(s"gossiping publishers for node ${node.uniqueNodeId}")
+      mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, node.uniqueNodeId))
   }
 }

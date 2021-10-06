@@ -17,13 +17,13 @@
 package io.radicalbit.nsdb.cluster.coordinator.mockedActors
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.util.ErrorManagementUtils.partitionResponses
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -80,7 +80,7 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
       val start = getShardStartIstant(timestamp, defaultShardingInterval)
       val end   = getShardEndIstant(start, defaultShardingInterval)
 
-      val location = Location(metric, "localhost", start, end)
+      val location = Location(metric, NSDbNode.empty, start, end)
 
       (cache ? PutLocationInCache(db, namespace, location.metric, location))
         .map {

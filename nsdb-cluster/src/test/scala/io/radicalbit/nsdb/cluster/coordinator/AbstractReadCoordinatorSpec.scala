@@ -26,12 +26,14 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLo
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{LocalMetadataCache, LocalMetadataCoordinator}
 import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
 import io.radicalbit.nsdb.cluster.logic.LocalityReadNodesSelection
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest._
-import scala.concurrent.duration._
 
+import java.util.UUID
+import scala.concurrent.duration._
 import scala.concurrent.Await
 
 abstract class AbstractReadCoordinatorSpec
@@ -50,10 +52,11 @@ abstract class AbstractReadCoordinatorSpec
     with WriteInterval {
 
   val probe     = TestProbe()
-  val basePath  = s"target/test_index/${getClass.getName}"
+  val basePath  = s"target/test_index/${getClass.getName}/${UUID.randomUUID}"
   val db        = "db"
   val namespace = "registry"
 
+  val node               = NSDbNode("localhost", "node1")
   val readNodesSelection = new LocalityReadNodesSelection("notImportant")
 
   val schemaCoordinator =
@@ -61,15 +64,15 @@ abstract class AbstractReadCoordinatorSpec
   val metadataCoordinator =
     system.actorOf(LocalMetadataCoordinator.props(system.actorOf(Props[LocalMetadataCache])), "metadata-coordinator")
   val metricsDataActor =
-    system.actorOf(MetricsDataActor.props(basePath, "node1", Actor.noSender))
+    system.actorOf(MetricsDataActor.props(basePath, node, Actor.noSender))
   val readCoordinatorActor = system actorOf ReadCoordinator.props(metadataCoordinator,
                                                                   schemaCoordinator,
                                                                   system.actorOf(Props.empty),
                                                                   readNodesSelection)
 
   def prepareTestData()(implicit timeout: Timeout) = {
-    val location1 = Location(_: String, "node1", 0, 5)
-    val location2 = Location(_: String, "node1", 6, 10)
+    val location1 = Location(_: String, node, 0, 5)
+    val location2 = Location(_: String, node, 6, 10)
 
     //long metric
     Await.result(
@@ -177,7 +180,7 @@ abstract class AbstractReadCoordinatorSpec
 
     implicit val timeout = Timeout(5.second)
 
-    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, "node1"), 10 seconds)
+    Await.result(readCoordinatorActor ? SubscribeMetricsDataActor(metricsDataActor, node.uniqueNodeId), 10 seconds)
 
     prepareTestData()
 

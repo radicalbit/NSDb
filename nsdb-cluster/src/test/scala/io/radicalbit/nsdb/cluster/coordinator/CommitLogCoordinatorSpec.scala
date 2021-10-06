@@ -17,12 +17,11 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import java.io.File
-
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.common.protocol.Bit
+import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.common.statement.{AbsoluteComparisonValue, Condition, DeleteSQLStatement, RangeExpression}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.test.NSDbSpecLike
@@ -59,7 +58,7 @@ class CommitLogCoordinatorSpec
                                                      "metric",
                                                      1L,
                                                      ReceivedEntryAction(bit),
-                                                     Location("metric", "", 1, 1))
+                                                     Location("metric", NSDbNode.empty, 1, 1))
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
@@ -72,7 +71,7 @@ class CommitLogCoordinatorSpec
                                                      "metric1",
                                                      1L,
                                                      RejectedEntryAction(bit),
-                                                     Location("metric", "", 1, 1))
+                                                     Location("metric", NSDbNode.empty, 1, 1))
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
@@ -88,7 +87,7 @@ class CommitLogCoordinatorSpec
                                                      "metric2",
                                                      1L,
                                                      DeleteAction(deleteStatement),
-                                                     Location("metric", "", 1, 1))
+                                                     Location("metric", NSDbNode.empty, 1, 1))
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
@@ -99,7 +98,7 @@ class CommitLogCoordinatorSpec
                                                      "metric3",
                                                      1L,
                                                      DeleteMetricAction(),
-                                                     Location("metric", "", 1, 1))
+                                                     Location("metric", NSDbNode.empty, 1, 1))
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
@@ -110,7 +109,7 @@ class CommitLogCoordinatorSpec
                                                      "",
                                                      1L,
                                                      DeleteNamespaceAction(),
-                                                     Location("metric", "", 1, 1))
+                                                     Location("metric", NSDbNode.empty, 1, 1))
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
