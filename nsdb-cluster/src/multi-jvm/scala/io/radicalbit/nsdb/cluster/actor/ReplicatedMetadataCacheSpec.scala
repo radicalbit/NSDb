@@ -18,43 +18,7 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
   val node1 = role("node-1")
   val node2 = role("node-2")
 
-  commonConfig(ConfigFactory.parseString("""
-    |akka.loglevel = ERROR
-    |akka.actor {
-    | provider = "cluster"
-    |
-    | serialization-bindings {
-    |   "io.radicalbit.nsdb.common.protocol.NSDbSerializable" = jackson-json
-    | }
-    |
-    | control-aware-dispatcher {
-    |     mailbox-type = "akka.dispatch.UnboundedControlAwareMailbox"
-    |   }
-    |}
-    |akka.log-dead-letters-during-shutdown = off
-    |nsdb {
-    |
-    |  global.timeout = 30 seconds
-    |  read-coordinator.timeout = 10 seconds
-    |  namespace-schema.timeout = 10 seconds
-    |  namespace-data.timeout = 10 seconds
-    |  publisher.timeout = 10 seconds
-    |  publisher.scheduler.interval = 5 seconds
-    |  write.scheduler.interval = 15 seconds
-    |
-    |  cluster.metadata-write-consistency = "all"
-    |
-    |  write-coordinator.timeout = 5 seconds
-    |  metadata-coordinator.timeout = 5 seconds
-    |  commit-log {
-    |    serializer = "io.radicalbit.nsdb.commit_log.StandardCommitLogSerializer"
-    |    writer = "io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter"
-    |    directory = "target/commitLog"
-    |    max-size = 50000
-    |    passivate-after = 5s
-    |  }
-    |}
-    """.stripMargin))
+  commonConfig(ConfigFactory.parseResources("application.conf"))
 }
 
 class ReplicatedMetadataCacheSpecMultiJvmNode1 extends ReplicatedMetadataCacheSpec
@@ -406,7 +370,7 @@ class ReplicatedMetadataCacheSpec
         }
 
         replicatedCache ! EvictLocation("db", "namespace", Location(metric, nsdbNode1, 0, 1))
-        expectMsg(Right(LocationEvicted("db", "namespace", Location(metric, nsdbNode1, 0, 1))))
+        expectMsg(LocationEvicted("db", "namespace", Location(metric, nsdbNode1, 0, 1)))
       }
 
       runOn(node1) {
@@ -484,7 +448,7 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node2) {
           replicatedCache ! EvictLocationsInNode(nsdbNode10.uniqueNodeId)
-          expectMsg(Right(LocationsInNodeEvicted(nsdbNode10.uniqueNodeId)))
+          expectMsg(LocationsInNodeEvicted(nsdbNode10.uniqueNodeId))
       }
 
       awaitAssert {
@@ -494,7 +458,7 @@ class ReplicatedMetadataCacheSpec
 
       runOn(node1) {
           replicatedCache ! EvictLocationsInNode(nsdbNode20.uniqueNodeId)
-          expectMsg(Right(LocationsInNodeEvicted(nsdbNode20.uniqueNodeId)))
+          expectMsg(LocationsInNodeEvicted(nsdbNode20.uniqueNodeId))
       }
 
       awaitAssert {

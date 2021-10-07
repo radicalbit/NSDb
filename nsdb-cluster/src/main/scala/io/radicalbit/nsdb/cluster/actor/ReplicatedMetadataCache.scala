@@ -84,7 +84,7 @@ object ReplicatedMetadataCache {
   final case class PutCoordinateInCacheFailed(db: String, namespace: String, metric: String)
       extends AddCoordinateResponse
 
-  sealed trait AddLocationResponse
+  sealed trait AddLocationResponse extends NSDbSerializable
 
   final case class LocationCached(db: String, namespace: String, metric: String, value: Location)
       extends AddLocationResponse
@@ -102,10 +102,13 @@ object ReplicatedMetadataCache {
   final case class EvictLocation(db: String, namespace: String, location: Location) extends NSDbSerializable
   final case class EvictLocationsInNode(nodeName: String)                           extends NSDbSerializable
 
-  final case class LocationEvicted(db: String, namespace: String, location: Location)     extends NSDbSerializable
-  final case class EvictLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
-  final case class LocationsInNodeEvicted(nodeName: String)                               extends NSDbSerializable
-  final case class EvictLocationsInNodeFailed(nodeName: String)                           extends NSDbSerializable
+  sealed trait EvictLocationResponse                                                      extends NSDbSerializable
+  final case class LocationEvicted(db: String, namespace: String, location: Location)     extends EvictLocationResponse
+  final case class EvictLocationFailed(db: String, namespace: String, location: Location) extends EvictLocationResponse
+
+  sealed trait EvictLocationInNodeResponse                      extends NSDbSerializable
+  final case class LocationsInNodeEvicted(nodeName: String)     extends EvictLocationInNodeResponse
+  final case class EvictLocationsInNodeFailed(nodeName: String) extends EvictLocationInNodeResponse
 
   final case class PutMetricInfoInCache(metricInfo: MetricInfo)                          extends NSDbSerializable
   final case class MetricInfoAlreadyExisting(key: MetricInfoCacheKey, value: MetricInfo) extends NSDbSerializable
@@ -226,7 +229,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     TimeUnit.SECONDS)
 
   lazy val blackListCheckInterval: FiniteDuration =
-    FiniteDuration(context.system.settings.config.getDuration("nsdb.blacklist.check.interval").toNanos, TimeUnit.NANOSECONDS)
+    FiniteDuration(context.system.settings.config.getDuration("nsdb.blacklist.check.interval").toNanos,
+                   TimeUnit.NANOSECONDS)
 
   lazy val blackListTtl: Long =
     FiniteDuration(context.system.settings.config.getDuration("nsdb.blacklist.ttl").toNanos, TimeUnit.NANOSECONDS).toMillis
@@ -309,10 +313,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       } yield remove
       f.map {
           case UpdateSuccess(_, _) =>
-            Right(LocationEvicted(db, namespace, Location(metric, node, from, to)))
+            LocationEvicted(db, namespace, Location(metric, node, from, to))
           case e =>
             log.error("unexpected result during location eviction {}", e)
-            Left(EvictLocationFailed(db, namespace, Location(metric, node, from, to)))
+            EvictLocationFailed(db, namespace, Location(metric, node, from, to))
         }
         .pipeTo(sender)
     case EvictLocationsInNode(nodeName) =>
@@ -327,21 +331,21 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
                   .map {
                     case LocationWithCoordinates(db, namespace, location) =>
                       (self ? EvictLocation(db, namespace, location))
-                        .mapTo[Either[EvictLocationFailed, LocationEvicted]]
                   }
               )
               .map { responses =>
-                val (_, failures) = ErrorManagementUtils.partitionResponses(responses)
+                val (_, failures) =
+                  ErrorManagementUtils.partitionResponses[LocationEvicted, EvictLocationFailed](responses)
                 if (failures.nonEmpty) {
                   log.error(s"error in evicting locations $failures")
-                  Left(EvictLocationsInNodeFailed(nodeName))
-                } else Right(LocationsInNodeEvicted(nodeName))
+                  EvictLocationsInNodeFailed(nodeName)
+                } else LocationsInNodeEvicted(nodeName)
               }
           case NotFound(_, _) =>
-            Future(Right(LocationsInNodeEvicted(nodeName)))
+            Future(LocationsInNodeEvicted(nodeName))
           case e =>
             log.error(s"cannot retrieve locations for node $nodeName, got $e")
-            Future(Left(EvictLocationsInNodeFailed(nodeName)))
+            Future(EvictLocationsInNodeFailed(nodeName))
         }
         .pipeTo(sender)
     case AddOutdatedLocationInCache(db, namespace, location) =>
@@ -356,7 +360,6 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         }
         .pipeTo(sender)
     case CheckBlackListTtl =>
-
     case AddNodeToBlackList(node) =>
       (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(
         _ :+ NSDbNodeWithTtl(node, System.currentTimeMillis)))
@@ -441,11 +444,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
             .map(_.flatten)
         }
         (_, failedEvictions) <- Future
-          .sequence {
-            locations.map(location =>
-              (self ? EvictLocation(db, namespace, location)).mapTo[Either[EvictLocationFailed, LocationEvicted]])
-          }
-          .map(responses => ErrorManagementUtils.partitionResponses(responses))
+          .sequence(locations.map(location => self ? EvictLocation(db, namespace, location)))
+          .map(responses => ErrorManagementUtils.partitionResponses[LocationEvicted, EvictLocationFailed](responses))
         metricInfos <- (replicator ? Get(allMetricInfoKey, ReadLocal, request = Some(AllMetricInfoRequest(sender()))))
           .map {
             case g @ GetSuccess(_, _) =>

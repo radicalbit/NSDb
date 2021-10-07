@@ -176,7 +176,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
                                                  retentionCheckInterval,
                                                  metadataCache,
                                                  GetAllMetricInfoWithRetention)
-
   }
 
   /**
@@ -329,15 +328,15 @@ class MetadataCoordinator(clusterListener: ActorRef,
                 val cacheResponses = Future
                   .sequence(locationsToFullyEvict.map { location =>
                     (metadataCache ? EvictLocation(db, namespace, location))
-                      .mapTo[Either[EvictLocationFailed, LocationEvicted]]
+                      .mapTo[EvictLocationResponse]
                       .recover {
                         case exception =>
-                          log.error("unexpected result during location eviction", exception)
-                          Left(EvictLocationFailed(db, namespace, location))
+                          log.error(exception, "unexpected result during location eviction")
+                          EvictLocationFailed(db, namespace, location)
                       }
                   })
                   .map { responses =>
-                    manageErrors(responses) { errors =>
+                    manageErrors[LocationEvicted, EvictLocationFailed](responses) { errors =>
                       log.error("errors during delete locations from cache {}", errors)
                       context.system.terminate()
                     }
@@ -544,8 +543,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
       log.info(s"remove locations for node $nodeName")
       (metadataCache ? EvictLocationsInNode(nodeName))
         .map {
-          case Left(EvictLocationsInNodeFailed(_)) => RemoveNodeMetadataFailed(nodeName)
-          case Right(LocationsInNodeEvicted(_))    => NodeMetadataRemoved(nodeName)
+          case EvictLocationsInNodeFailed(_) => RemoveNodeMetadataFailed(nodeName)
+          case LocationsInNodeEvicted(_)     => NodeMetadataRemoved(nodeName)
         }
         .pipeTo(sender())
     case ExecuteRestoreMetadata(path: String) =>
