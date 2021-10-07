@@ -99,6 +99,18 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   def createClusterListener: ActorRef =
     context.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeAddress(selfMember)}")
 
+  def updateVolatileId(volatileId: String) = {
+    node = NSDbNode(nodeAddress, nodeFsId, volatileId)
+
+    import context.dispatcher
+
+    if (heartBeatDispatcher != null) heartBeatDispatcher.cancel()
+
+    heartBeatDispatcher = context.system.scheduler.schedule(heartbeatInterval, heartbeatInterval) {
+      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(node))
+    }
+  }
+
   private val clusterListener: ActorRef = createClusterListener
 
   protected lazy val schemaCoordinator: ActorRef = context.actorOf(
@@ -162,15 +174,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   def receive: Receive = {
     case UpdateVolatileId(volatileId) =>
-      node = NSDbNode(nodeAddress, nodeFsId, volatileId)
-
-      import context.dispatcher
-
-      if (heartBeatDispatcher != null) heartBeatDispatcher.cancel()
-
-      heartBeatDispatcher = context.system.scheduler.schedule(heartbeatInterval, heartbeatInterval) {
-        mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(node))
-      }
+      updateVolatileId(volatileId)
       sender() ! VolatileIdUpdated(node)
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)

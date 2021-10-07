@@ -50,7 +50,7 @@ class NodeActorGuardianForTestWithFailingCoordinator(volatileId : String, probe:
 
   class FailingReadCoordinator(probe: ActorRef) extends Actor {
 
-    val volatileDb = UUID.randomUUID().toString
+    val internalState = UUID.randomUUID().toString
 
     node = NSDbNode(nodeAddress, nodeFsId, volatileId)
 
@@ -58,7 +58,7 @@ class NodeActorGuardianForTestWithFailingCoordinator(volatileId : String, probe:
       log.error(s"failing read coordinator started at path ${self.path}")
 
     override def receive: Receive = {
-      case "GetVolatileId" => sender() ! volatileDb
+      case "GetInternalState" => sender() ! internalState
       case ExecuteStatement(statement, _) if statement.db == "failingDb" =>
         probe ! "Failure"
         throw new RuntimeException("it's failing")
@@ -133,9 +133,9 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
 
       expectMsgType[SelectStatementExecuted]
 
-      readCoordinator ! "GetVolatileId"
+      readCoordinator ! "GetInternalState"
 
-      val volatileId = expectMsgType[String]
+      val internalState = expectMsgType[String]
 
       readCoordinator ! errorStatement
 
@@ -149,9 +149,9 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
 
       expectMsgType[SelectStatementExecuted]
 
-      readCoordinator ! "GetVolatileId"
+      readCoordinator ! "GetInternalState"
 
-      expectMsgType[String] shouldBe volatileId
+      expectMsgType[String] shouldBe internalState
     }
 
     "handle errors and terminate child actor when resumes exceeds the limits" in {

@@ -1,6 +1,6 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.ActorRef
 import akka.cluster.{Member, MemberStatus}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
@@ -50,7 +50,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   val selfMember: Member = cluster.selfMember
   val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
   val nodeActorGuardian: ActorRef = system.actorOf(NodeActorGuardianForTest.props(nodeName), name = s"guardian_${nodeName}_$nodeName")
-
 
 
   val nsdbNode1 = NSDbNode("localhost_2552", "node1", "volatile1")
