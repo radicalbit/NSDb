@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.cluster.ddata._
 import akka.dispatch.ControlMessage
@@ -29,6 +28,7 @@ import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbNode, NSDbSerializab
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import io.radicalbit.nsdb.util.ErrorManagementUtils
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
@@ -64,6 +64,7 @@ object ReplicatedMetadataCache {
   private final case class NamespaceRequest(db: String, replyTo: ActorRef)
   private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
   private final case class NodesBlackListRequest(replyTo: ActorRef)
+  private final case object NodesBlackListInternalRequest
 
   final case class PutCoordinateInCache(db: String, namespace: String, metric: String) extends NSDbSerializable
   final case class PutLocationInCache(db: String,
@@ -162,7 +163,8 @@ object ReplicatedMetadataCache {
   final case class NodesBlackListGot(blacklist: Set[NSDbNode])      extends GetNodesBlackListResponse
   final case class GetNodesBlackListFailed(reason: String)          extends GetNodesBlackListResponse
 
-  case object CheckBlackListTtl extends NSDbSerializable
+  final case object CheckBlackListTtl                                               extends NSDbSerializable
+  final case class RemoveNodesFromBlacklist(nodesToBeRemoved: Set[NSDbNodeWithTtl]) extends NSDbSerializable
 }
 
 /**
@@ -238,7 +240,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
   import context.dispatcher
 
   override def preStart(): Unit = {
-    context.system.scheduler.scheduleAtFixedRate(blackListCheckInterval, blackListCheckInterval, self, null)
+    context.system.scheduler.scheduleAtFixedRate(blackListCheckInterval,
+                                                 blackListCheckInterval,
+                                                 self,
+                                                 CheckBlackListTtl)
   }
 
   def receive: Receive = {
@@ -360,6 +365,16 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         }
         .pipeTo(sender)
     case CheckBlackListTtl =>
+      replicator ! Get(nodesBlacklistKey, ReadLocal, Some(NodesBlackListInternalRequest))
+    case RemoveNodesFromBlacklist(toBeRemoved) =>
+      Future
+        .sequence(
+          toBeRemoved.map(e =>
+            (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(_ remove e))
+              .mapTo[UpdateSuccess[_]]))
+        .recover {
+          case t => log.error(t, "Unexpected error while removing a node from blacklist")
+        }
     case AddNodeToBlackList(node) =>
       (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(
         _ :+ NSDbNodeWithTtl(node, System.currentTimeMillis)))
@@ -530,6 +545,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case g @ GetSuccess(_, Some(NodesBlackListRequest(replyTo))) =>
       val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
       replyTo ! NodesBlackListGot(elements.map(_.node))
+    case g @ GetSuccess(_, Some(NodesBlackListInternalRequest)) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
+      self ! RemoveNodesFromBlacklist(elements.filter(e => System.currentTimeMillis > e.createdAt + blackListTtl))
     case NotFound(_, Some(MetricLocationsRequest(key, replyTo))) =>
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, Seq.empty)
     case NotFound(_, Some(MetricLocationsInNodeRequest(db, namespace, metric, _, replyTo))) =>
@@ -538,6 +556,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       replyTo ! OutdatedLocationsFromCacheGot(Set.empty)
     case NotFound(_, Some(NodesBlackListRequest(replyTo))) =>
       replyTo ! NodesBlackListGot(Set.empty)
+    case NotFound(_, Some(NodesBlackListInternalRequest)) => //do nothing
     case NotFound(_, Some(MetricInfoRequest(key, replyTo))) =>
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
     case NotFound(_, Some(AllMetricInfoWithRetentionRequest(replyTo))) =>

@@ -5,7 +5,7 @@ import akka.cluster.ddata.DistributedData
 import akka.cluster.ddata.Replicator.{GetReplicaCount, ReplicaCount}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.STMultiNodeSpec
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -18,7 +18,9 @@ object ReplicatedMetadataCacheSpec extends MultiNodeConfig {
   val node1 = role("node-1")
   val node2 = role("node-2")
 
-  commonConfig(ConfigFactory.parseResources("application.conf"))
+  commonConfig(
+    ConfigFactory.parseResources("application.conf").withValue("nsdb.blacklist.ttl", ConfigValueFactory.fromAnyRef("5s"))
+  )
 }
 
 class ReplicatedMetadataCacheSpecMultiJvmNode1 extends ReplicatedMetadataCacheSpec
@@ -541,6 +543,21 @@ class ReplicatedMetadataCacheSpec
         replicatedCache ! GetNodesBlackList
         val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListGot]
         outdatedLocationsFromCacheGot.blacklist shouldBe Set(node1, node2)
+      }
+    }
+
+    "ensure that a blacklisted node is removed from the list after the configured ttl" in {
+      awaitAssert {
+        replicatedCache ! GetNodesBlackList
+        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListGot]
+        outdatedLocationsFromCacheGot.blacklist.size shouldBe 2
+      }
+
+      awaitAssert {
+        replicatedCache ! CheckBlackListTtl
+        replicatedCache ! GetNodesBlackList
+        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListGot]
+        outdatedLocationsFromCacheGot.blacklist shouldBe Set()
       }
     }
 
