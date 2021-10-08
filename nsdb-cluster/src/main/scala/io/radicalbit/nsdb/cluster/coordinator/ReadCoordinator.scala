@@ -192,14 +192,18 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       val startTime                         = System.currentTimeMillis()
       implicit val timeContext: TimeContext = context.getOrElse(TimeContext())
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
-      val selectStatementResponse: Future[ExecuteSelectStatementResponse] = Future
-        .sequence(
-          Seq(
-            schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric),
-            metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)
-          ))
+
+      val selectStatementResponse: Future[ExecuteSelectStatementResponse] = (for {
+        getSchemaResponse <- schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric)
+        locationResponse  <- metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)
+      } yield (getSchemaResponse, locationResponse))
+        .recoverWith {
+          case t =>
+            log.error(t, s"Error in Execute Statement $statement")
+            Future(SelectStatementFailed(statement, "Generic error occurred"))
+        }
         .flatMap {
-          case SchemaGot(_, _, _, Some(schema)) :: LocationsGot(_, _, _, locations) :: Nil =>
+          case (SchemaGot(_, _, _, Some(schema)), LocationsGot(_, _, _, locations)) =>
             log.debug("found schema {} and locations {}", schema, locations)
             val filteredLocations: Seq[Location] =
               ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), locations)
@@ -271,11 +275,6 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
               SelectStatementFailed(statement,
                                     s"Metric ${statement.metric} does not exist ",
                                     MetricNotFound(statement.metric)))
-        }
-        .recoverWith {
-          case t =>
-            log.error(t, s"Error in Execute Statement $statement")
-            Future(SelectStatementFailed(statement, "Generic error occurred"))
         }
 
       selectStatementResponse.pipeToWithEffect(sender()) { _ =>

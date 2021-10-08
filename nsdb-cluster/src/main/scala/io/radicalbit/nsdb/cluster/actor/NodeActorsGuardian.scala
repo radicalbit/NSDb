@@ -71,7 +71,6 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
-  private lazy val readNodesSelection = new LocalityReadNodesSelection(nodeFsId)
 
   private lazy val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
 
@@ -132,7 +131,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   protected lazy val readCoordinator: ActorRef =
     context.actorOf(
       ReadCoordinator
-        .props(metadataCoordinator, schemaCoordinator, mediator, readNodesSelection)
+        .props(metadataCoordinator, schemaCoordinator, mediator, new LocalityReadNodesSelection(node.uniqueNodeId))
         .withDispatcher("akka.actor.control-aware-dispatcher")
         .withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
       s"read-coordinator_$actorNameSuffix"
