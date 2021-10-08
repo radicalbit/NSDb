@@ -514,10 +514,10 @@ class ReplicatedMetadataCacheSpec
 
     "manage nodes blacklist" in {
 
-      replicatedCache ! GetNodesBlackList
+      replicatedCache ! GetNodesBlackListFromCache
 
       awaitAssert {
-        expectMsgType[NodesBlackListGot].blacklist.size shouldBe 0
+        expectMsgType[NodesBlackListFromCacheGot].blacklist.size shouldBe 0
       }
 
       enterBarrier("no-nodes-blacklist")
@@ -540,23 +540,23 @@ class ReplicatedMetadataCacheSpec
       enterBarrier("after-add-nodes-in-blacklist")
 
       awaitAssert {
-        replicatedCache ! GetNodesBlackList
-        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListGot]
+        replicatedCache ! GetNodesBlackListFromCache
+        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListFromCacheGot]
         outdatedLocationsFromCacheGot.blacklist shouldBe Set(node1, node2)
       }
     }
 
     "ensure that a blacklisted node is removed from the list after the configured ttl" in {
       awaitAssert {
-        replicatedCache ! GetNodesBlackList
-        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListGot]
+        replicatedCache ! GetNodesBlackListFromCache
+        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListFromCacheGot]
         outdatedLocationsFromCacheGot.blacklist.size shouldBe 2
       }
 
       awaitAssert {
         replicatedCache ! CheckBlackListTtl
-        replicatedCache ! GetNodesBlackList
-        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListGot]
+        replicatedCache ! GetNodesBlackListFromCache
+        val outdatedLocationsFromCacheGot = expectMsgType[NodesBlackListFromCacheGot]
         outdatedLocationsFromCacheGot.blacklist shouldBe Set()
       }
     }

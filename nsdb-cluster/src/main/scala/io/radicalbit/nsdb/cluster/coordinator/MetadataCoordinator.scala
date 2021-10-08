@@ -31,7 +31,7 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementI
 import io.radicalbit.nsdb.cluster.actor.NSDbMetricsEvents._
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache.SchemaKey
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetNodesBlackList, _}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
@@ -40,7 +40,7 @@ import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
+import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbNode, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates, Schema, TimeContext}
@@ -590,6 +590,15 @@ class MetadataCoordinator(clusterListener: ActorRef,
             RestoreMetadataFailed(path, reason)
         }
         .pipeTo(sender())
+    case GetNodesBlackList =>
+      (metadataCache ? GetNodesBlackListFromCache).mapTo[GetNodesBlackListFromCacheResponse].map{
+        case NodesBlackListFromCacheGot(blackList) => NodesBlackListGot(blackList)
+        case   GetNodesBlackListFromCacheFailed(reason) => GetNodesBlackListFailed(reason)
+      }.recover {
+        case t =>
+          log.error(t,"Unexpected error while retrieving Nodes Blacklist")
+          GetNodesBlackListFailed(t.getMessage)
+      }.pipeTo(sender())
   }
 
 }
@@ -641,6 +650,8 @@ object MetadataCoordinator {
     case class RemoveNodeMetadata(nodeName: String) extends NSDbSerializable
 
     case class ExecuteRestoreMetadata(path: String) extends NSDbSerializable
+
+    case object GetNodesBlackList extends NSDbSerializable
   }
 
   object events {
@@ -708,6 +719,10 @@ object MetadataCoordinator {
     trait RestoreMetadataResponse                                  extends NSDbSerializable
     case class MetadataRestored(path: String)                      extends RestoreMetadataResponse
     case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
+
+    trait GetNodesBlackListResponse                                  extends NSDbSerializable
+    case class NodesBlackListGot(blackList: Set[NSDbNode])                      extends RestoreMetadataResponse
+    case class GetNodesBlackListFailed(reason: String) extends RestoreMetadataResponse
   }
 
   def props(clusterListener: ActorRef,
