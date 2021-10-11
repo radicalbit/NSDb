@@ -157,11 +157,11 @@ object ReplicatedMetadataCache {
   final case class NodeToBlackListAdded(node: NSDbNode)                     extends AddNodeToBlackListResponse
   final case class AddNodeToBlackListFailed(node: NSDbNode, reason: String) extends AddNodeToBlackListResponse
 
-  final case class NSDbNodeWithTtl(node: NSDbNode, createdAt: Long) extends NSDbSerializable
-  final case object GetNodesBlackListFromCache                               extends NSDbSerializable
-  sealed trait GetNodesBlackListFromCacheResponse                            extends NSDbSerializable
-  final case class NodesBlackListFromCacheGot(blacklist: Set[NSDbNode])      extends GetNodesBlackListFromCacheResponse
-  final case class GetNodesBlackListFromCacheFailed(reason: String)          extends GetNodesBlackListFromCacheResponse
+  final case class NSDbNodeWithTtl(node: NSDbNode, createdAt: Long)     extends NSDbSerializable
+  final case object GetNodesBlackListFromCache                          extends NSDbSerializable
+  sealed trait GetNodesBlackListFromCacheResponse                       extends NSDbSerializable
+  final case class NodesBlackListFromCacheGot(blacklist: Set[NSDbNode]) extends GetNodesBlackListFromCacheResponse
+  final case class GetNodesBlackListFromCacheFailed(reason: String)     extends GetNodesBlackListFromCacheResponse
 
   final case object CheckBlackListTtl                                               extends NSDbSerializable
   final case class RemoveNodesFromBlacklist(nodesToBeRemoved: Set[NSDbNodeWithTtl]) extends NSDbSerializable

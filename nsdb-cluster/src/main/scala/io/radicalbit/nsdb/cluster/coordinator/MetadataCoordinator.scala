@@ -591,14 +591,18 @@ class MetadataCoordinator(clusterListener: ActorRef,
         }
         .pipeTo(sender())
     case GetNodesBlackList =>
-      (metadataCache ? GetNodesBlackListFromCache).mapTo[GetNodesBlackListFromCacheResponse].map{
-        case NodesBlackListFromCacheGot(blackList) => NodesBlackListGot(blackList)
-        case   GetNodesBlackListFromCacheFailed(reason) => GetNodesBlackListFailed(reason)
-      }.recover {
-        case t =>
-          log.error(t,"Unexpected error while retrieving Nodes Blacklist")
-          GetNodesBlackListFailed(t.getMessage)
-      }.pipeTo(sender())
+      (metadataCache ? GetNodesBlackListFromCache)
+        .mapTo[GetNodesBlackListFromCacheResponse]
+        .map {
+          case NodesBlackListFromCacheGot(blackList)    => NodesBlackListGot(blackList)
+          case GetNodesBlackListFromCacheFailed(reason) => GetNodesBlackListFailed(reason)
+        }
+        .recover {
+          case t =>
+            log.error(t, "Unexpected error while retrieving Nodes Blacklist")
+            GetNodesBlackListFailed(t.getMessage)
+        }
+        .pipeTo(sender())
   }
 
 }
@@ -720,9 +724,9 @@ object MetadataCoordinator {
     case class MetadataRestored(path: String)                      extends RestoreMetadataResponse
     case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
 
-    trait GetNodesBlackListResponse                                  extends NSDbSerializable
-    case class NodesBlackListGot(blackList: Set[NSDbNode])                      extends RestoreMetadataResponse
-    case class GetNodesBlackListFailed(reason: String) extends RestoreMetadataResponse
+    trait GetNodesBlackListResponse                        extends NSDbSerializable
+    case class NodesBlackListGot(blackList: Set[NSDbNode]) extends RestoreMetadataResponse
+    case class GetNodesBlackListFailed(reason: String)     extends RestoreMetadataResponse
   }
 
   def props(clusterListener: ActorRef,

@@ -126,6 +126,8 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
           case e => MetricInfoFailed(metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
+    case GetNodesBlackList =>
+      sender() ! NodesBlackListGot(Set.empty)
   }
 }
 
