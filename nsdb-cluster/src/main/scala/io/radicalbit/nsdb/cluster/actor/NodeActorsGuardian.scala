@@ -25,12 +25,13 @@ import akka.remote.RemoteScope
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.supervision.OneForOneWithRetriesStrategy
 import io.radicalbit.nsdb.cluster.PubSubTopics._
+import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.{UpdateVolatileId, VolatileIdUpdated}
 import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeAddress
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.cluster.logic.{CapacityWriteNodesSelectionLogic, LocalityReadNodesSelection}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
-import io.radicalbit.nsdb.common.protocol.NSDbNode
+import io.radicalbit.nsdb.common.protocol.{NSDbNode, NSDbSerializable}
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.util.FileUtils
@@ -47,21 +48,26 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private val mediator = DistributedPubSub(context.system).mediator
 
-  private val nodeAddress = createNodeAddress(selfMember)
+  protected val nodeAddress: String = createNodeAddress(selfMember)
 
   protected lazy val selfNodeName: String = createNodeAddress(selfMember)
-  protected lazy val nodeFsId: String       = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
-
-  protected lazy val node: NSDbNode = NSDbNode(nodeAddress, nodeFsId)
+  protected lazy val nodeFsId: String     = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
 
   private val config = context.system.settings.config
 
   private val indexBasePath = config.getString(StorageIndexPath)
 
+  private val heartbeatInterval = FiniteDuration(
+    context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
+
+  protected var node: NSDbNode                   = _
+  protected var heartBeatDispatcher: Cancellable = _
+
   if (config.hasPath(StorageTmpPath))
     System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
 
-  protected def actorNameSuffix: String = NSDbNode(nodeAddress, nodeFsId).uniqueNodeId
+  protected def actorNameSuffix: String = node.uniqueNodeId
 
   private lazy val writeNodesSelectionLogic = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(config.getString("nsdb.cluster.metrics-selector")))
@@ -92,6 +98,18 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   def createClusterListener: ActorRef =
     context.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeAddress(selfMember)}")
+
+  def updateVolatileId(volatileId: String) = {
+    node = NSDbNode(nodeAddress, nodeFsId, volatileId)
+
+    import context.dispatcher
+
+    if (heartBeatDispatcher != null) heartBeatDispatcher.cancel()
+
+    heartBeatDispatcher = context.system.scheduler.schedule(heartbeatInterval, heartbeatInterval) {
+      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(node))
+    }
+  }
 
   private val clusterListener: ActorRef = createClusterListener
 
@@ -151,25 +169,13 @@ class NodeActorsGuardian extends Actor with ActorLogging {
     s"metrics-data-actor_$actorNameSuffix"
   )
 
-  override def preStart(): Unit = {
-
-    val interval = FiniteDuration(
-      context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
-      TimeUnit.SECONDS)
-
-    import context.dispatcher
-
-    /**
-      * scheduler that disseminate gossip message to all the cluster listener actors
-      */
-    context.system.scheduler.schedule(interval, interval) {
-      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(NSDbNode(nodeAddress, nodeFsId)))
-    }
-
+  override def preStart(): Unit =
     log.info(s"NodeActorGuardian is ready at ${self.path.name}")
-  }
 
   def receive: Receive = {
+    case UpdateVolatileId(volatileId) =>
+      updateVolatileId(volatileId)
+      sender() ! VolatileIdUpdated(node)
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
     case GetMetricsDataActors =>
@@ -182,4 +188,9 @@ class NodeActorsGuardian extends Actor with ActorLogging {
       log.debug(s"gossiping publishers for node ${node.uniqueNodeId}")
       mediator ! Publish(COORDINATORS_TOPIC, SubscribePublisher(publisherActor, node.uniqueNodeId))
   }
+}
+
+object NodeActorsGuardian {
+  case class UpdateVolatileId(volatileId: String) extends NSDbSerializable
+  case class VolatileIdUpdated(node: NSDbNode)    extends NSDbSerializable
 }

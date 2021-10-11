@@ -7,14 +7,15 @@ import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.STMultiNodeSpec
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.common.statement.{AllFields, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
 
 import java.util.UUID
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class SupervisionSpecMultiJvmNode1 extends SupervisionSpec
 class SupervisionSpecMultiJvmNode2 extends SupervisionSpec
@@ -45,17 +46,19 @@ object SupervisionSpecConfig extends MultiNodeConfig {
 
 }
 
-class NodeActorGuardianForTestWithFailingCoordinator(probe: ActorRef) extends NodeActorGuardianForTest {
+class NodeActorGuardianForTestWithFailingCoordinator(volatileId : String, probe: ActorRef) extends NodeActorGuardianForTest(volatileId) {
 
   class FailingReadCoordinator(probe: ActorRef) extends Actor {
 
-    val volatileDb = UUID.randomUUID().toString
+    val internalState = UUID.randomUUID().toString
+
+    node = NSDbNode(nodeAddress, nodeFsId, volatileId)
 
     override def preStart(): Unit =
       log.error(s"failing read coordinator started at path ${self.path}")
 
     override def receive: Receive = {
-      case "GetVolatileId" => sender() ! volatileDb
+      case "GetInternalState" => sender() ! internalState
       case ExecuteStatement(statement, _) if statement.db == "failingDb" =>
         probe ! "Failure"
         throw new RuntimeException("it's failing")
@@ -69,6 +72,10 @@ class NodeActorGuardianForTestWithFailingCoordinator(probe: ActorRef) extends No
 
 }
 
+object NodeActorGuardianForTestWithFailingCoordinator {
+  def props(volatileId: String, probe: ActorRef): Props = Props(new NodeActorGuardianForTestWithFailingCoordinator(volatileId, probe))
+}
+
 class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiNodeSpec with ImplicitSender {
 
   import SupervisionSpecConfig._
@@ -80,7 +87,7 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
 
   val probe = TestProbe()
 
-  private def readCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/read-coordinator_${nodeName}_$nodeName"
+  private def readCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/read-coordinator_${nodeName}_${nodeName}_$nodeName"
 
   val correctStatement = ExecuteStatement(SelectSQLStatement(
     db = "db",
@@ -104,7 +111,7 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
     "successfully set up a cluster with a potentially failing node" in {
 
       runOn(node1, node2, node3) {
-        system.actorOf(Props(new NodeActorGuardianForTestWithFailingCoordinator(probe.ref)), name = s"guardian_${nodeName}_$nodeName")
+        system.actorOf(Props(new NodeActorGuardianForTestWithFailingCoordinator(nodeName, probe.ref)), name = s"guardian_${nodeName}_$nodeName")
       }
 
       cluster.join(node(node1).address)
@@ -118,6 +125,7 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
       enterBarrier(5 seconds, "nodes joined")
     }
 
+
     "handle errors and properly resume child actor" in {
       val readCoordinator = system.actorSelection(readCoordinatorPath(nodeName))
 
@@ -125,9 +133,9 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
 
       expectMsgType[SelectStatementExecuted]
 
-      readCoordinator ! "GetVolatileId"
+      readCoordinator ! "GetInternalState"
 
-      val volatileId = expectMsgType[String]
+      val internalState = expectMsgType[String]
 
       readCoordinator ! errorStatement
 
@@ -141,9 +149,9 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
 
       expectMsgType[SelectStatementExecuted]
 
-      readCoordinator ! "GetVolatileId"
+      readCoordinator ! "GetInternalState"
 
-      expectMsgType[String] shouldBe volatileId
+      expectMsgType[String] shouldBe internalState
     }
 
     "handle errors and terminate child actor when resumes exceeds the limits" in {

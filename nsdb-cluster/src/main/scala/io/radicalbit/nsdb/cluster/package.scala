@@ -44,4 +44,6 @@ package object cluster {
     final val NSDB_METRICS_TOPIC   = "nsdb-metrics"
     final val NSDB_LISTENERS_TOPIC = "nsdb-listeners"
   }
+
+  final val VOLATILE_ID_LENGTH: Int = 10
 }

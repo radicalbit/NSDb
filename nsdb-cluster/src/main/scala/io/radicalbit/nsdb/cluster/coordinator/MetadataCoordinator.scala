@@ -172,9 +172,10 @@ class MetadataCoordinator(clusterListener: ActorRef,
       log.debug("WriteCoordinator commit log  actor : {}", commitLogCoordinators.size)
     }
 
-    context.system.scheduler.schedule(FiniteDuration(0, "ms"), retentionCheckInterval) {
-      metadataCache ! GetAllMetricInfoWithRetention
-    }
+    context.system.scheduler.scheduleAtFixedRate(FiniteDuration(0, "ms"),
+                                                 retentionCheckInterval,
+                                                 metadataCache,
+                                                 GetAllMetricInfoWithRetention)
 
   }
 

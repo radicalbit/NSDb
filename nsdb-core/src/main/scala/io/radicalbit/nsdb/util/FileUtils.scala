@@ -33,10 +33,10 @@ import scala.collection.JavaConverters._
   */
 object FileUtils {
 
-  final val NODE_ID_EXTENSION = "name"
-  final val NODE_ID_LENGTH    = 10
-  final val BUFFER_SIZE       = 4096
-  final val buffer            = new Array[Byte](BUFFER_SIZE)
+  final val NODE_FS_ID_EXTENSION = "name"
+  final val NODE_FS_ID_LENGTH    = 10
+  final val BUFFER_SIZE          = 4096
+  final val buffer               = new Array[Byte](BUFFER_SIZE)
 
   private class DirectoryFilter extends FileFilter {
     override def accept(pathname: File): Boolean = pathname.isDirectory
@@ -49,7 +49,7 @@ object FileUtils {
 
   private class NodeIdFilter extends FileFilter {
     override def accept(pathname: File): Boolean =
-      !pathname.isDirectory && pathname.getName.endsWith(NODE_ID_EXTENSION)
+      !pathname.isDirectory && pathname.getName.endsWith(NODE_FS_ID_EXTENSION)
   }
 
   /**
@@ -137,9 +137,9 @@ object FileUtils {
   def getOrCreateNodeFsId(address: String, basePath: String): String = {
     Option(Paths.get(basePath).toFile.listFiles(new NodeIdFilter)).getOrElse(Array.empty) match {
       case Array() =>
-        val newName = RandomStringUtils.randomAlphabetic(NODE_ID_LENGTH)
+        val newName = RandomStringUtils.randomAlphabetic(NODE_FS_ID_LENGTH)
         new File(basePath).mkdirs()
-        new File(basePath, s"$newName.$NODE_ID_EXTENSION").createNewFile()
+        new File(basePath, s"$newName.$NODE_FS_ID_EXTENSION").createNewFile()
         newName
       case Array(singleFile) => FilenameUtils.removeExtension(singleFile.getName)
       case _                 => throw new InvalidNodeIdException(address)

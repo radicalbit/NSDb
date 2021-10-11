@@ -50,7 +50,7 @@ object CommandApiSpec {
   class FakeMetadataCoordinator extends Actor {
     override def receive: Receive = {
       case GetTopology =>
-        sender() ! TopologyGot(Set(NSDbNode("address", "fs")))
+        sender() ! TopologyGot(Set(NSDbNode("address", "fs", "volatile")))
       case GetLocations(db, namespace, metric) =>
         sender() ! LocationsGot(db, namespace, metric, Seq(Location.empty))
       case GetMetricInfo(db, namespace, "metricWithoutInfo") =>
@@ -91,7 +91,7 @@ class CommandApiSpec extends NSDbFlatSpec with ScalatestRouteTest with CommandAp
     Get("/commands/topology").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
-      entity shouldBe write(TopologyGot(Set(NSDbNode("address", "fs"))))
+      entity shouldBe write(TopologyGot(Set(NSDbNode("address", "fs", "volatile"))))
     }
   }
 

@@ -64,7 +64,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
   def namespace: String
 
-  val node: NSDbNode = NSDbNode("localhost", "nodeId")
+  val node: NSDbNode = NSDbNode("localhost", "nodeId", "volatile")
 
   val interval = FiniteDuration(system.settings.config.getDuration("nsdb.write.scheduler.interval", TimeUnit.SECONDS),
                                 TimeUnit.SECONDS) + 1.second
@@ -97,7 +97,7 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
   val record2 =
     Bit(System.currentTimeMillis, 2, Map("content" -> s"content", "content2" -> s"content2"), Map.empty)
 
-  NSDbClusterSnapshot(system).addNode("localhost", "nodeId")
+  NSDbClusterSnapshot(system).addNode(node)
 
   def defaultBehaviour {
     "write records" in {

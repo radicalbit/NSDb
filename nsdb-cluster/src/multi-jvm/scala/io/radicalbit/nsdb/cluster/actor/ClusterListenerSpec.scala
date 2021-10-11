@@ -12,6 +12,8 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLoc
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
 import io.radicalbit.nsdb.STMultiNodeSpec
+import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.{UpdateVolatileId, VolatileIdUpdated}
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 
 import scala.concurrent.duration._
 
@@ -56,6 +58,8 @@ class NodeActorsGuardianForTest(val resultActor: ActorRef, val testType: TestTyp
   private lazy val readCoordinator     = context.actorOf(Props(new ReadCoordinatorForTest))
 
   def receive: Receive = {
+    case UpdateVolatileId(_) =>
+      sender() ! VolatileIdUpdated(NSDbNode.empty)
     case GetNodeChildActors =>
       sender() ! NodeChildActorsGot(metaDataCoordinator, writeCoordinator, readCoordinator, ActorRef.noSender)
   }

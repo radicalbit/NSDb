@@ -22,8 +22,8 @@ import io.radicalbit.nsdb.common.protocol.NSDbNode
 import scala.collection.JavaConverters._
 
 /**
-  * Extension that is inspired by the akka [[Cluster]] extension with the purpose to store the current snapshot for a NSDb cluster.
-  * Besides the (already provided by akka) [[Member]] information, the unique node identifier is snapshot
+  * Extension that is inspired by the akka [[akka.cluster.Cluster]] extension with the purpose to store the current snapshot for a NSDb cluster.
+  * Besides the (already provided by akka) [[akka.cluster.Member]] information, the unique node identifier is snapshot
   * and associated to an address, which may vary.
   */
 class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extension {
@@ -36,10 +36,11 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extensio
     * Adds a node and associate it to the a unique identifier
     * @param address the actual address of the node.
     * @param nodeId the node unique identifier.
+    * @param volatileId the node volatile id
     */
-  def addNode(address: String, nodeId: String): NSDbNode = {
+  def addNode(address: String, nodeId: String, volatileId: String): NSDbNode = {
     system.log.debug(s"adding node with address $address and $nodeId to $threadSafeMap")
-    threadSafeMap.put(address, NSDbNode(address, nodeId))
+    threadSafeMap.put(address, NSDbNode(address, nodeId, volatileId))
   }
 
   def addNode(node: NSDbNode): NSDbNode = {
