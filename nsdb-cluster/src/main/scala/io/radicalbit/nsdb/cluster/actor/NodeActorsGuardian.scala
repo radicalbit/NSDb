@@ -75,9 +75,6 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private lazy val maxAttempts = context.system.settings.config.getInt("nsdb.write.retry-attempts")
 
-  private val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$nodeFsId-$nodeAddress")
-  private val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$nodeFsId-$nodeAddress")
-
   def shutdownBehaviour(context: ActorContext, child: ActorRef): Unit =
     context.system.terminate()
 
@@ -112,6 +109,9 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   }
 
   private val clusterListener: ActorRef = createClusterListener
+
+  private lazy val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$actorNameSuffix")
+  private lazy val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$actorNameSuffix")
 
   protected lazy val schemaCoordinator: ActorRef = context.actorOf(
     SchemaCoordinator

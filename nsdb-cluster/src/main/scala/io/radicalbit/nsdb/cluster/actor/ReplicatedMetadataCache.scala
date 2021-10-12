@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.actor
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.cluster.ddata._
 import akka.dispatch.ControlMessage
@@ -26,11 +24,13 @@ import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.logic.WriteConfig
 import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
+import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbNode, NSDbSerializable}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
 import io.radicalbit.nsdb.util.ErrorManagementUtils
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 object ReplicatedMetadataCache {
 
@@ -63,6 +63,8 @@ object ReplicatedMetadataCache {
   private final case class DbsRequest(replyTo: ActorRef)
   private final case class NamespaceRequest(db: String, replyTo: ActorRef)
   private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
+  private final case class NodesBlackListRequest(replyTo: ActorRef)
+  private final case object NodesBlackListInternalRequest
 
   final case class PutCoordinateInCache(db: String, namespace: String, metric: String) extends NSDbSerializable
   final case class PutLocationInCache(db: String,
@@ -83,7 +85,7 @@ object ReplicatedMetadataCache {
   final case class PutCoordinateInCacheFailed(db: String, namespace: String, metric: String)
       extends AddCoordinateResponse
 
-  sealed trait AddLocationResponse
+  sealed trait AddLocationResponse extends NSDbSerializable
 
   final case class LocationCached(db: String, namespace: String, metric: String, value: Location)
       extends AddLocationResponse
@@ -101,10 +103,13 @@ object ReplicatedMetadataCache {
   final case class EvictLocation(db: String, namespace: String, location: Location) extends NSDbSerializable
   final case class EvictLocationsInNode(nodeName: String)                           extends NSDbSerializable
 
-  final case class LocationEvicted(db: String, namespace: String, location: Location)     extends NSDbSerializable
-  final case class EvictLocationFailed(db: String, namespace: String, location: Location) extends NSDbSerializable
-  final case class LocationsInNodeEvicted(nodeName: String)                               extends NSDbSerializable
-  final case class EvictLocationsInNodeFailed(nodeName: String)                           extends NSDbSerializable
+  sealed trait EvictLocationResponse                                                      extends NSDbSerializable
+  final case class LocationEvicted(db: String, namespace: String, location: Location)     extends EvictLocationResponse
+  final case class EvictLocationFailed(db: String, namespace: String, location: Location) extends EvictLocationResponse
+
+  sealed trait EvictLocationInNodeResponse                      extends NSDbSerializable
+  final case class LocationsInNodeEvicted(nodeName: String)     extends EvictLocationInNodeResponse
+  final case class EvictLocationsInNodeFailed(nodeName: String) extends EvictLocationInNodeResponse
 
   final case class PutMetricInfoInCache(metricInfo: MetricInfo)                          extends NSDbSerializable
   final case class MetricInfoAlreadyExisting(key: MetricInfoCacheKey, value: MetricInfo) extends NSDbSerializable
@@ -145,6 +150,21 @@ object ReplicatedMetadataCache {
   final case class OutdatedLocationsFromCacheGot(locations: Set[LocationWithCoordinates])
       extends GetOutdatedLocationsFromCacheResponse
   final case class GetOutdatedLocationsFromCacheFailed(reason: String) extends GetOutdatedLocationsFromCacheResponse
+
+  final case class AddNodeToBlackList(node: NSDbNode) extends NSDbSerializable
+  sealed trait AddNodeToBlackListResponse             extends NSDbSerializable
+
+  final case class NodeToBlackListAdded(node: NSDbNode)                     extends AddNodeToBlackListResponse
+  final case class AddNodeToBlackListFailed(node: NSDbNode, reason: String) extends AddNodeToBlackListResponse
+
+  final case class NSDbNodeWithTtl(node: NSDbNode, createdAt: Long) extends NSDbSerializable
+  final case object GetNodesBlackList                               extends NSDbSerializable
+  sealed trait GetNodesBlackListResponse                            extends NSDbSerializable
+  final case class NodesBlackListGot(blacklist: Set[NSDbNode])      extends GetNodesBlackListResponse
+  final case class GetNodesBlackListFailed(reason: String)          extends GetNodesBlackListResponse
+
+  final case object CheckBlackListTtl                                               extends NSDbSerializable
+  final case class RemoveNodesFromBlacklist(nodesToBeRemoved: Set[NSDbNodeWithTtl]) extends NSDbSerializable
 }
 
 /**
@@ -201,10 +221,30 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     */
   private val outdatedLocationsKey: ORSetKey[LocationWithCoordinates] = ORSetKey(s"outdated-locations-cache")
 
+  /**
+    * Creates a [[ORSetKey]] for nodes blacklist
+    */
+  private val nodesBlacklistKey: ORSetKey[NSDbNodeWithTtl] = ORSetKey(s"nodes-blacklist")
+
   implicit val timeout: Timeout = Timeout(
     context.system.settings.config.getDuration("nsdb.write-coordinator.timeout", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
+
+  lazy val blackListCheckInterval: FiniteDuration =
+    FiniteDuration(context.system.settings.config.getDuration("nsdb.blacklist.check.interval").toNanos,
+                   TimeUnit.NANOSECONDS)
+
+  lazy val blackListTtl: Long =
+    FiniteDuration(context.system.settings.config.getDuration("nsdb.blacklist.ttl").toNanos, TimeUnit.NANOSECONDS).toMillis
+
   import context.dispatcher
+
+  override def preStart(): Unit = {
+    context.system.scheduler.scheduleAtFixedRate(blackListCheckInterval,
+                                                 blackListCheckInterval,
+                                                 self,
+                                                 CheckBlackListTtl)
+  }
 
   def receive: Receive = {
     case PutCoordinateInCache(db, namespace, metric) =>
@@ -278,10 +318,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       } yield remove
       f.map {
           case UpdateSuccess(_, _) =>
-            Right(LocationEvicted(db, namespace, Location(metric, node, from, to)))
+            LocationEvicted(db, namespace, Location(metric, node, from, to))
           case e =>
             log.error("unexpected result during location eviction {}", e)
-            Left(EvictLocationFailed(db, namespace, Location(metric, node, from, to)))
+            EvictLocationFailed(db, namespace, Location(metric, node, from, to))
         }
         .pipeTo(sender)
     case EvictLocationsInNode(nodeName) =>
@@ -296,21 +336,21 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
                   .map {
                     case LocationWithCoordinates(db, namespace, location) =>
                       (self ? EvictLocation(db, namespace, location))
-                        .mapTo[Either[EvictLocationFailed, LocationEvicted]]
                   }
               )
               .map { responses =>
-                val (_, failures) = ErrorManagementUtils.partitionResponses(responses)
+                val (_, failures) =
+                  ErrorManagementUtils.partitionResponses[LocationEvicted, EvictLocationFailed](responses)
                 if (failures.nonEmpty) {
                   log.error(s"error in evicting locations $failures")
-                  Left(EvictLocationsInNodeFailed(nodeName))
-                } else Right(LocationsInNodeEvicted(nodeName))
+                  EvictLocationsInNodeFailed(nodeName)
+                } else LocationsInNodeEvicted(nodeName)
               }
           case NotFound(_, _) =>
-            Future(Right(LocationsInNodeEvicted(nodeName)))
+            Future(LocationsInNodeEvicted(nodeName))
           case e =>
             log.error(s"cannot retrieve locations for node $nodeName, got $e")
-            Future(Left(EvictLocationsInNodeFailed(nodeName)))
+            Future(EvictLocationsInNodeFailed(nodeName))
         }
         .pipeTo(sender)
     case AddOutdatedLocationInCache(db, namespace, location) =>
@@ -322,6 +362,28 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
           case e =>
             log.error(s"error in put location in cache $e")
             AddOutdatedLocationFailed(db, namespace, location)
+        }
+        .pipeTo(sender)
+    case CheckBlackListTtl =>
+      replicator ! Get(nodesBlacklistKey, ReadLocal, Some(NodesBlackListInternalRequest))
+    case RemoveNodesFromBlacklist(toBeRemoved) =>
+      Future
+        .sequence(
+          toBeRemoved.map(e =>
+            (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(_ remove e))
+              .mapTo[UpdateSuccess[_]]))
+        .recover {
+          case t => log.error(t, "Unexpected error while removing a node from blacklist")
+        }
+    case AddNodeToBlackList(node) =>
+      (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(
+        _ :+ NSDbNodeWithTtl(node, System.currentTimeMillis)))
+        .map {
+          case UpdateSuccess(_, _) =>
+            NodeToBlackListAdded(node)
+          case e =>
+            log.error(s"error in put location in cache $e")
+            AddNodeToBlackListFailed(node, s"unexpected response $e")
         }
         .pipeTo(sender)
     case GetLocationsFromCache(db, namespace, metric) =>
@@ -351,6 +413,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case GetMetricsFromCache(db, namespace) =>
       log.debug("searching for key {} in cache", coordinatesKey)
       replicator ! Get(coordinatesKey, ReadLocal, request = Some(MetricRequest(db, namespace, sender())))
+    case GetNodesBlackList =>
+      log.debug("searching for nodes blacklist")
+      replicator ! Get(nodesBlacklistKey, ReadLocal, Some(NodesBlackListRequest(sender())))
     case DropMetricFromCache(db, namespace, metric) =>
       (for {
         locations <- (self ? GetLocationsFromCache(db, namespace, metric)).mapTo[LocationsCached].map(_.locations)
@@ -394,11 +459,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
             .map(_.flatten)
         }
         (_, failedEvictions) <- Future
-          .sequence {
-            locations.map(location =>
-              (self ? EvictLocation(db, namespace, location)).mapTo[Either[EvictLocationFailed, LocationEvicted]])
-          }
-          .map(responses => ErrorManagementUtils.partitionResponses(responses))
+          .sequence(locations.map(location => self ? EvictLocation(db, namespace, location)))
+          .map(responses => ErrorManagementUtils.partitionResponses[LocationEvicted, EvictLocationFailed](responses))
         metricInfos <- (replicator ? Get(allMetricInfoKey, ReadLocal, request = Some(AllMetricInfoRequest(sender()))))
           .map {
             case g @ GetSuccess(_, _) =>
@@ -480,12 +542,21 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         .filter(c => c.db == db && c.namespace == namespace)
         .map(_.metric)
       replyTo ! MetricsFromCacheGot(db, namespace, elements)
+    case g @ GetSuccess(_, Some(NodesBlackListRequest(replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
+      replyTo ! NodesBlackListGot(elements.map(_.node))
+    case g @ GetSuccess(_, Some(NodesBlackListInternalRequest)) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
+      self ! RemoveNodesFromBlacklist(elements.filter(e => System.currentTimeMillis > e.createdAt + blackListTtl))
     case NotFound(_, Some(MetricLocationsRequest(key, replyTo))) =>
       replyTo ! LocationsCached(key.db, key.namespace, key.metric, Seq.empty)
     case NotFound(_, Some(MetricLocationsInNodeRequest(db, namespace, metric, _, replyTo))) =>
       replyTo ! LocationsCached(db, namespace, metric, Seq.empty)
     case NotFound(_, Some(OutdatedLocationsRequest(replyTo))) =>
       replyTo ! OutdatedLocationsFromCacheGot(Set.empty)
+    case NotFound(_, Some(NodesBlackListRequest(replyTo))) =>
+      replyTo ! NodesBlackListGot(Set.empty)
+    case NotFound(_, Some(NodesBlackListInternalRequest)) => //do nothing
     case NotFound(_, Some(MetricInfoRequest(key, replyTo))) =>
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
     case NotFound(_, Some(AllMetricInfoWithRetentionRequest(replyTo))) =>

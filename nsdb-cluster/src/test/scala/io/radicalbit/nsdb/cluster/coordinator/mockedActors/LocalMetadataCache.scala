@@ -84,7 +84,7 @@ class LocalMetadataCache extends Actor {
       val key              = MetricLocationsCacheKey(db, namespace, location.metric)
       val previousLocation = locations.getOrElse(key, Set.empty)
       locations.put(key, previousLocation - location)
-      sender ! Right(LocationEvicted(db, namespace, location))
+      sender ! LocationEvicted(db, namespace, location)
     case GetMetricInfoFromCache(db, namespace, metric) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
       sender ! MetricInfoCached(db, namespace, metric, Option(metricInfo.get(key)))
