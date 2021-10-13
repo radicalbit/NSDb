@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
 import akka.cluster.ddata._
@@ -31,16 +30,15 @@ import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementI
 import io.radicalbit.nsdb.cluster.actor.NSDbMetricsEvents._
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.actor.ReplicatedSchemaCache.SchemaKey
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{GetNodesBlackList, _}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatementFromThreshold
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
 import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
-import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.model.MetricInfo
-import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbNode, NSDbSerializable}
+import io.radicalbit.nsdb.common.protocol.{Coordinates, NSDbSerializable}
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.index.{DirectorySupport, StorageStrategy}
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates, Schema, TimeContext}
@@ -48,7 +46,9 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.util.ErrorManagementUtils._
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -158,6 +158,31 @@ class MetadataCoordinator(clusterListener: ActorRef,
           post(MetricInfo(db, namespace, metric, defaultShardingInterval, retention))
         case _ => post(MetricInfo(db, namespace, metric, defaultShardingInterval))
       }
+
+  /**
+    *
+    * @param db
+    * @param namespace
+    * @param metric
+    * @return
+    */
+  protected def getLiveLocation(db: String, namespace: String, metric: String): Future[GetLiveLocationsResponse] = {
+    (for {
+      allLocations <- (metadataCache ? GetLocationsFromCache(db, namespace, metric))
+        .mapTo[LocationsCached]
+      blacklist <- (metadataCache ? GetNodesBlackListFromCache)
+        .mapTo[GetNodesBlackListFromCacheResponse]
+    } yield
+      blacklist match {
+        case NodesBlackListFromCacheGot(blackList) =>
+          LiveLocationsGot(db, namespace, metric, allLocations.locations.filterNot(loc => blackList.contains(loc.node)))
+        case GetNodesBlackListFromCacheFailed(reason) => GetLiveLocationError(db, namespace, metric, reason)
+      }).recover {
+      case t =>
+        log.error(t, "Unexpected error while retrieving Nodes Blacklist")
+        GetLiveLocationError(db, namespace, metric, t.getMessage)
+    }
+  }
 
   override def preStart(): Unit = {
     mediator ! Subscribe(COORDINATORS_TOPIC, self)
@@ -450,6 +475,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
         .mapTo[LocationsCached]
         .map(l => LocationsGot(db, namespace, metric, l.locations))
         .pipeTo(sender())
+    case GetLiveLocations(db, namespace, metric) =>
+      getLiveLocation(db, namespace, metric).pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
       val clusterAliveMembers = nsdbClusterSnapshot.nodes
       log.debug(s"cluster alive members $clusterAliveMembers")
@@ -469,9 +496,10 @@ class MetadataCoordinator(clusterListener: ActorRef,
           if (retention > 0 && (timestamp < currentTime - retention || timestamp > currentTime + retention))
             Future(GetWriteLocationsBeyondRetention(db, namespace, metric, timestamp, metricInfo.retention))
           else {
-            (metadataCache ? GetLocationsFromCache(db, namespace, metric))
+            getLiveLocation(db, namespace, metric)
+//            (metadataCache ? GetLocationsFromCache(db, namespace, metric))
               .flatMap {
-                case LocationsCached(_, _, _, locations) =>
+                case LiveLocationsGot(_, _, _, locations) =>
                   locations.filter(location => location.contains(timestamp)) match {
                     case Nil =>
                       for {
@@ -505,7 +533,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                     case s => Future(WriteLocationsGot(db, namespace, metric, s))
                   }
                 case e =>
-                  val errorMessage = s"unexpected result while trying to get locations in cache $e"
+                  val errorMessage = s"unexpected result while trying to get live locations in cache $e"
                   Future(GetWriteLocationsFailed(db, namespace, metric, timestamp, errorMessage))
               }
           }
@@ -590,19 +618,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
             RestoreMetadataFailed(path, reason)
         }
         .pipeTo(sender())
-    case GetNodesBlackList =>
-      (metadataCache ? GetNodesBlackListFromCache)
-        .mapTo[GetNodesBlackListFromCacheResponse]
-        .map {
-          case NodesBlackListFromCacheGot(blackList)    => NodesBlackListGot(blackList)
-          case GetNodesBlackListFromCacheFailed(reason) => GetNodesBlackListFailed(reason)
-        }
-        .recover {
-          case t =>
-            log.error(t, "Unexpected error while retrieving Nodes Blacklist")
-            GetNodesBlackListFailed(t.getMessage)
-        }
-        .pipeTo(sender())
   }
 
 }
@@ -654,8 +669,6 @@ object MetadataCoordinator {
     case class RemoveNodeMetadata(nodeName: String) extends NSDbSerializable
 
     case class ExecuteRestoreMetadata(path: String) extends NSDbSerializable
-
-    case object GetNodesBlackList extends NSDbSerializable
   }
 
   object events {
@@ -724,9 +737,9 @@ object MetadataCoordinator {
     case class MetadataRestored(path: String)                      extends RestoreMetadataResponse
     case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
 
-    trait GetNodesBlackListResponse                        extends NSDbSerializable
-    case class NodesBlackListGot(blackList: Set[NSDbNode]) extends RestoreMetadataResponse
-    case class GetNodesBlackListFailed(reason: String)     extends RestoreMetadataResponse
+//    trait GetNodesBlackListResponse                        extends NSDbSerializable
+//    case class NodesBlackListGot(blackList: Set[NSDbNode]) extends RestoreMetadataResponse
+//    case class GetNodesBlackListFailed(reason: String)     extends RestoreMetadataResponse
   }
 
   def props(clusterListener: ActorRef,

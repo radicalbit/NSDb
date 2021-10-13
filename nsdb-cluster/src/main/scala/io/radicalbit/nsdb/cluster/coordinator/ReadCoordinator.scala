@@ -24,8 +24,6 @@ import akka.pattern.ask
 import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.NsdbPerfLogger
 import io.radicalbit.nsdb.cluster.PubSubTopics._
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetNodesBlackList
-import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.NodesBlackListGot
 import io.radicalbit.nsdb.cluster.logic.ReadNodesSelection
 import io.radicalbit.nsdb.common.NSDbNumericType
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel.precision
@@ -197,20 +195,20 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       val selectStatementResponse: Future[ExecuteSelectStatementResponse] =
         (for {
           getSchemaResponse <- schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric)
-          nodesBlackList    <- metadataCoordinator ? GetNodesBlackList
-          locationResponse  <- metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)
-        } yield (getSchemaResponse, nodesBlackList, locationResponse))
+          liveLocationResponse <- metadataCoordinator ? GetLiveLocations(statement.db,
+                                                                         statement.namespace,
+                                                                         statement.metric)
+        } yield (getSchemaResponse, liveLocationResponse))
           .recoverWith {
             case t =>
               log.error(t, s"Error in Execute Statement $statement")
               Future(SelectStatementFailed(statement, "Generic error occurred"))
           }
           .flatMap {
-            case (SchemaGot(_, _, _, Some(schema)), NodesBlackListGot(blackList), LocationsGot(_, _, _, locations)) =>
-              log.debug(s"found schema $schema, blacklist $blackList and locations $locations")
+            case (SchemaGot(_, _, _, Some(schema)), LiveLocationsGot(_, _, _, liveLocations)) =>
+              log.debug(s"found schema $schema, and live $liveLocations")
               val filteredLocations: Seq[Location] =
-                ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression),
-                                                              locations.filterNot(loc => blackList.contains(loc.node)))
+                ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), liveLocations)
 
               val uniqueLocationsByNode: Map[String, Seq[Location]] =
                 readNodesSelection.getDistinctLocationsByNode(filteredLocations)

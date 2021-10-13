@@ -126,8 +126,11 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
           case e => MetricInfoFailed(metricInfo, s"Unknown response from cache $e")
         }
         .pipeTo(sender)
-    case GetNodesBlackList =>
-      sender() ! NodesBlackListGot(Set.empty)
+    case GetLiveLocations(db, namespace, metric) =>
+      (cache ? GetLocationsFromCache(db, namespace, metric))
+        .mapTo[LocationsCached]
+        .map(l => LocationsGot(db, namespace, metric, l.locations))
+        .pipeTo(sender())
   }
 }
 
