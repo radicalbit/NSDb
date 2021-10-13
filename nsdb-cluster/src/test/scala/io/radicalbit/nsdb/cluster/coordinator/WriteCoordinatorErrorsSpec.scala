@@ -31,7 +31,7 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, 
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{LocationsGot, RecordRejected}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{LiveLocationsGot, RecordRejected}
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
@@ -47,8 +47,8 @@ class MockedMetadataCoordinator extends Actor with ActorLogging {
   val locations: mutable.Map[(String, String), Seq[Location]] = mutable.Map.empty
 
   override def receive: Receive = {
-    case GetLocations(db, namespace, metric) =>
-      sender() ! LocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
+    case GetLiveLocations(db, namespace, metric) =>
+      sender() ! LiveLocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
     case GetWriteLocations(db, namespace, metric, timestamp) =>
       val locationNode1 = Location(metric, node1, timestamp, timestamp + shardingInterval.toMillis)
       val locationNode2 = Location(metric, node2, timestamp, timestamp + shardingInterval.toMillis)

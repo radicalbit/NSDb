@@ -51,11 +51,11 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
   val nodeActorGuardian: ActorRef = system.actorOf(NodeActorGuardianForTest.props(nodeName), name = s"guardian_${nodeName}_$nodeName")
 
-
   val nsdbNode1 = NSDbNode("localhost_2552", "node1", "volatile1")
   val nsdbNode2 = NSDbNode("localhost_2553", "node2", "volatile2")
 
   private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_${nodeName}_$nodeName"
+  private def metadataCache(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-cache_${nodeName}_${nodeName}_$nodeName"
 
   "Metadata system" must {
 
@@ -201,5 +201,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
       enterBarrier("after-GetWriteLocationsFailed-test")
     }
+
   }
 }

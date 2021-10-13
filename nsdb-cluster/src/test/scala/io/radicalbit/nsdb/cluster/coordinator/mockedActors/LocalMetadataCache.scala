@@ -37,6 +37,8 @@ class LocalMetadataCache extends Actor {
 
   val coordinates: mutable.Set[Coordinates] = mutable.Set.empty
 
+  val blackList: mutable.Set[NSDbNodeWithTtl] = mutable.Set.empty
+
   def receive: Receive = {
     case GetDbsFromCache =>
       sender ! DbsFromCacheGot(coordinates.map(_.db).toSet)
@@ -70,6 +72,7 @@ class LocalMetadataCache extends Actor {
       locations.clear()
       metricInfo.clear()
       coordinates.clear()
+      blackList.clear()
       sender() ! DeleteDone
     case PutMetricInfoInCache(info @ MetricInfo(db, namespace, metric, _, _)) =>
       val key = MetricInfoCacheKey(db, namespace, metric)
@@ -90,6 +93,11 @@ class LocalMetadataCache extends Actor {
       sender ! MetricInfoCached(db, namespace, metric, Option(metricInfo.get(key)))
     case GetAllMetricInfoWithRetention =>
       sender() ! AllMetricInfoWithRetentionGot(metricInfo.values().asScala.toSet.filter(_.retention > 0))
+    case AddNodeToBlackList(node) =>
+      blackList += NSDbNodeWithTtl(node, System.currentTimeMillis())
+      sender() ! NodeToBlackListAdded(node)
+    case GetNodesBlackListFromCache =>
+      sender() ! NodesBlackListFromCacheGot(blackList.map(_.node).toSet)
   }
 }
 

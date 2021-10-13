@@ -33,8 +33,8 @@ object MessageProtocol {
     * commands executed among NSDb actors.
     */
   object Commands {
-    case object GetTopology                                                    extends NSDbSerializable
-    case class GetLocations(db: String, namespace: String, metric: String)     extends NSDbSerializable
+    case object GetTopology extends NSDbSerializable
+//    case class GetLocations(db: String, namespace: String, metric: String)     extends NSDbSerializable
     case class GetLiveLocations(db: String, namespace: String, metric: String) extends NSDbSerializable
     case object GetDbs                                                         extends ControlMessage with NSDbSerializable
     case class GetNamespaces(db: String)                                       extends ControlMessage with NSDbSerializable
@@ -116,9 +116,6 @@ object MessageProtocol {
     * events received from nsdb actors.
     */
   object Events {
-
-    case class LocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])
-        extends NSDbSerializable
 
     sealed trait GetLiveLocationsResponse extends NSDbSerializable
     case class LiveLocationsGot(db: String, namespace: String, metric: String, locations: Seq[Location])

@@ -242,8 +242,8 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
       probe.send(schemaCoordinator, GetSchema(db, namespace, "testMetric"))
       probe.expectMsgType[SchemaGot].schema.isDefined shouldBe true
 
-      probe.send(metadataCoordinator, GetLocations(db, namespace, "testMetric"))
-      val locations = probe.expectMsgType[LocationsGot].locations
+      probe.send(metadataCoordinator, GetLiveLocations(db, namespace, "testMetric"))
+      val locations = probe.expectMsgType[LiveLocationsGot].locations
 
       probe.send(metricsDataActor, GetCountWithLocations(db, namespace, "testMetric", locations))
 
@@ -256,8 +256,8 @@ trait WriteCoordinatorBehaviour { this: TestKit with NSDbSpecLike =>
 
       expectNoMessage(interval)
 
-      probe.send(metadataCoordinator, GetLocations(db, namespace, "testMetric"))
-      val locationsAfterDrop = probe.expectMsgType[LocationsGot].locations
+      probe.send(metadataCoordinator, GetLiveLocations(db, namespace, "testMetric"))
+      val locationsAfterDrop = probe.expectMsgType[LiveLocationsGot].locations
       locationsAfterDrop.size shouldBe 0
 
       probe.send(metricsDataActor, GetCountWithLocations(db, namespace, "testMetric", locationsAfterDrop))

@@ -109,8 +109,12 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private val clusterListener: ActorRef = createClusterListener
 
-  private lazy val metadataCache = context.actorOf(Props[ReplicatedMetadataCache], s"metadata-cache-$actorNameSuffix")
-  private lazy val schemaCache   = context.actorOf(Props[ReplicatedSchemaCache], s"schema-cache-$actorNameSuffix")
+  private lazy val metadataCache = context.actorOf(
+    Props[ReplicatedMetadataCache].withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+    s"metadata-cache-$actorNameSuffix")
+  private lazy val schemaCache = context.actorOf(
+    Props[ReplicatedSchemaCache].withDeploy(Deploy(scope = RemoteScope(selfMember.address))),
+    s"schema-cache-$actorNameSuffix")
 
   protected lazy val schemaCoordinator: ActorRef = context.actorOf(
     SchemaCoordinator

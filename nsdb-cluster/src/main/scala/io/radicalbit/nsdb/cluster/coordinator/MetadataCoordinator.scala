@@ -160,11 +160,11 @@ class MetadataCoordinator(clusterListener: ActorRef,
       }
 
   /**
-    *
-    * @param db
-    * @param namespace
-    * @param metric
-    * @return
+    * A live location is a location that is not blacklisted and it's consider safe to fetch data from.
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the metric.
+    * @return a [[LiveLocationsGot]] containing the sequence of live locations. If an error occurs, a [[GetLiveLocationError]] is returned instead.
     */
   protected def getLiveLocation(db: String, namespace: String, metric: String): Future[GetLiveLocationsResponse] = {
     (for {
@@ -470,11 +470,11 @@ class MetadataCoordinator(clusterListener: ActorRef,
           NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())
-    case GetLocations(db, namespace, metric) =>
-      (metadataCache ? GetLocationsFromCache(db, namespace, metric))
-        .mapTo[LocationsCached]
-        .map(l => LocationsGot(db, namespace, metric, l.locations))
-        .pipeTo(sender())
+//    case GetLocations(db, namespace, metric) =>
+//      (metadataCache ? GetLocationsFromCache(db, namespace, metric))
+//        .mapTo[LocationsCached]
+//        .map(l => LocationsGot(db, namespace, metric, l.locations))
+//        .pipeTo(sender())
     case GetLiveLocations(db, namespace, metric) =>
       getLiveLocation(db, namespace, metric).pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
@@ -497,7 +497,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
             Future(GetWriteLocationsBeyondRetention(db, namespace, metric, timestamp, metricInfo.retention))
           else {
             getLiveLocation(db, namespace, metric)
-//            (metadataCache ? GetLocationsFromCache(db, namespace, metric))
               .flatMap {
                 case LiveLocationsGot(_, _, _, locations) =>
                   locations.filter(location => location.contains(timestamp)) match {
@@ -737,9 +736,6 @@ object MetadataCoordinator {
     case class MetadataRestored(path: String)                      extends RestoreMetadataResponse
     case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
 
-//    trait GetNodesBlackListResponse                        extends NSDbSerializable
-//    case class NodesBlackListGot(blackList: Set[NSDbNode]) extends RestoreMetadataResponse
-//    case class GetNodesBlackListFailed(reason: String)     extends RestoreMetadataResponse
   }
 
   def props(clusterListener: ActorRef,
