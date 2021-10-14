@@ -470,11 +470,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
           NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())
-//    case GetLocations(db, namespace, metric) =>
-//      (metadataCache ? GetLocationsFromCache(db, namespace, metric))
-//        .mapTo[LocationsCached]
-//        .map(l => LocationsGot(db, namespace, metric, l.locations))
-//        .pipeTo(sender())
     case GetLiveLocations(db, namespace, metric) =>
       getLiveLocation(db, namespace, metric).pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>

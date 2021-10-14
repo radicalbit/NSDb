@@ -1,12 +1,13 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.ActorRef
-import akka.cluster.{Member, MemberStatus}
+import akka.actor.{ActorRef, ActorSelection}
+import akka.cluster.{Cluster, Member, MemberStatus}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.STMultiNodeSpec
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{AddNodeToBlackList, NodeToBlackListAdded}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
@@ -14,9 +15,9 @@ import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.model.{Location, LocationWithCoordinates}
-import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetNodeChildActors, NodeChildActorsGot}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetLiveLocations, GetNodeChildActors, NodeChildActorsGot}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.LiveLocationsGot
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 
 object MetadataSpec extends MultiNodeConfig {
@@ -54,6 +55,12 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
   val nsdbNode1 = NSDbNode("localhost_2552", "node1", "volatile1")
   val nsdbNode2 = NSDbNode("localhost_2553", "node2", "volatile2")
 
+  private def getActorPath(pathFunction: String => String)(implicit cluster: Cluster): ActorSelection = {
+    val selfMember = cluster.selfMember
+    val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+    system.actorSelection(pathFunction(nodeName))
+  }
+
   private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_${nodeName}_$nodeName"
   private def metadataCache(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-cache_${nodeName}_${nodeName}_$nodeName"
 
@@ -73,15 +80,8 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
     }
 
     "add location from different nodes" in {
-
       runOn(node1) {
-        val selfMember = cluster.selfMember
-        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-
-        val metadataCoordinator = Await.result(
-          system.actorSelection(metadataCoordinatorPath(nodeName)).resolveOne(5.seconds),
-          5.seconds)
-
+        val metadataCoordinator = getActorPath(metadataCoordinatorPath)
         awaitAssert {
           metadataCoordinator ! AddLocations("db", "namespace", Seq(Location("metric", nsdbNode1, 0, 1)))
           expectMsg(LocationsAdded("db", "namespace", Seq(Location("metric", nsdbNode1, 0, 1))))
@@ -96,11 +96,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       val metricInfo = MetricInfo("db", "namespace", "metric", 100, 30)
 
       runOn(node1) {
-        val selfMember = cluster.selfMember
-        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-
-        val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
-
+        val metadataCoordinator = getActorPath(metadataCoordinatorPath)
         awaitAssert {
           metadataCoordinator ! PutMetricInfo(metricInfo)
           expectMsg(MetricInfoPut(metricInfo))
@@ -110,12 +106,59 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
       enterBarrier("after-add-metrics-info")
     }
 
+    "get live locations filtering out the nodes blacklist" in {
+      val metadataCoordinator = getActorPath(metadataCoordinatorPath)
+      val metadataCacheActor = getActorPath(metadataCache)
+
+
+      val locationsToAdd = Seq(
+        Location("metric",nsdbNode1, 0,1),
+        Location("metric",nsdbNode2, 0,1),
+        Location("metric",nsdbNode1, 1,2),
+        Location("metric",nsdbNode2, 1,2)
+      )
+
+      metadataCoordinator ! AddLocations("db", "namespace", locationsToAdd)
+
+      awaitAssert{
+        val reply = expectMsgType[LocationsAdded]
+        reply.db shouldBe "db"
+        reply.namespace shouldBe "namespace"
+        reply.locations shouldBe locationsToAdd
+      }
+
+      awaitAssert{
+        metadataCoordinator ! GetLiveLocations("db", "namespace", "metric")
+        val reply = expectMsgType[LiveLocationsGot]
+        reply.db shouldBe "db"
+        reply.namespace shouldBe "namespace"
+        reply.metric shouldBe "metric"
+        reply.locations shouldBe locationsToAdd
+      }
+
+      enterBarrier("after-get-live-locations-without-blacklist")
+
+      metadataCacheActor ! AddNodeToBlackList(nsdbNode1)
+      awaitAssert{
+        expectMsgType[NodeToBlackListAdded].node shouldBe nsdbNode1
+      }
+
+      awaitAssert{
+        metadataCoordinator ! GetLiveLocations("db", "namespace", "metric")
+        val reply = expectMsgType[LiveLocationsGot]
+        reply.db shouldBe "db"
+        reply.namespace shouldBe "namespace"
+        reply.metric shouldBe "metric"
+        reply.locations.size shouldBe 2
+        reply.locations should contain(locationsToAdd(1))
+        reply.locations should contain(locationsToAdd(3))
+      }
+
+      enterBarrier("after-get-live-locations-test-with-blacklist")
+    }
+
     "get write locations" in {
-
-      val selfMember = cluster.selfMember
-      val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-
-      val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
+      val metadataCoordinator = getActorPath(metadataCoordinatorPath)
 
       metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", 0)
 
@@ -139,9 +182,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
     }
 
     "manage outdated locations" in {
-      val selfMember = cluster.selfMember
-      val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-      val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
+      val metadataCoordinator = getActorPath(metadataCoordinatorPath)
 
       metadataCoordinator ! GetOutdatedLocations
 
@@ -175,10 +216,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
     }
 
     "manage errors when there are not enough cluster nodes" in {
-      val selfMember = cluster.selfMember
-      val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-      val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
-
+      val metadataCoordinator = getActorPath(metadataCoordinatorPath)
       cluster.leave(node(node2).address)
       awaitAssert {
         cluster.state.members.filter(_.status == MemberStatus.Up).map(_.address) shouldBe Set(node(node1).address)
@@ -201,6 +239,5 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
       enterBarrier("after-GetWriteLocationsFailed-test")
     }
-
   }
 }

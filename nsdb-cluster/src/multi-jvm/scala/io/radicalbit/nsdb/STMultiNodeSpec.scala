@@ -11,7 +11,7 @@ import org.scalatest.BeforeAndAfterAll
   */
 trait STMultiNodeSpec extends MultiNodeSpecCallbacks with NSDbSpecLike with BeforeAndAfterAll { this: MultiNodeSpec =>
 
-  protected lazy val cluster: Cluster = Cluster(system)
+  protected implicit lazy val cluster: Cluster = Cluster(system)
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {
