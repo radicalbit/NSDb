@@ -1,7 +1,7 @@
 package io.radicalbit.nsdb.cluster.actor
 
-import akka.actor.{ActorRef, ActorSelection}
-import akka.cluster.{Cluster, Member, MemberStatus}
+import akka.actor.ActorRef
+import akka.cluster.{Member, MemberStatus}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import akka.util.Timeout
@@ -54,12 +54,6 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with STMultiNodeSpec with
 
   val nsdbNode1 = NSDbNode("localhost_2552", "node1", "volatile1")
   val nsdbNode2 = NSDbNode("localhost_2553", "node2", "volatile2")
-
-  private def getActorPath(pathFunction: String => String)(implicit cluster: Cluster): ActorSelection = {
-    val selfMember = cluster.selfMember
-    val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-    system.actorSelection(pathFunction(nodeName))
-  }
 
   private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_${nodeName}_$nodeName"
   private def metadataCache(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-cache_${nodeName}_${nodeName}_$nodeName"

@@ -1,5 +1,6 @@
 package io.radicalbit.nsdb
 
+import akka.actor.ActorSelection
 import akka.cluster.Cluster
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeSpec, MultiNodeSpecCallbacks}
@@ -19,6 +20,12 @@ trait STMultiNodeSpec extends MultiNodeSpecCallbacks with NSDbSpecLike with Befo
       cluster join node(to).address
     }
     enterBarrier(from.name + "-joined")
+  }
+
+  def getActorPath(pathFunction: String => String)(implicit cluster: Cluster): ActorSelection = {
+    val selfMember = cluster.selfMember
+    val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
+    cluster.system.actorSelection(pathFunction(nodeName))
   }
 
   override def beforeAll() = multiNodeSpecBeforeAll()

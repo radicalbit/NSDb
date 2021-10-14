@@ -212,8 +212,8 @@ class MetadataCoordinatorSpec
         locationGot.metric shouldBe metric
 
         locationGot.locations.size shouldBe 1
-        locationGot.locations.head.from shouldBe 0L
-        locationGot.locations.head.to shouldBe 60000L
+        locationGot.locations.foreach(_.from shouldBe 0L)
+        locationGot.locations.foreach(_.to shouldBe 60000L)
       }
 
       awaitAssert {
@@ -224,8 +224,8 @@ class MetadataCoordinatorSpec
         locationGot_2.metric shouldBe metric
 
         locationGot_2.locations.size shouldBe 1
-        locationGot_2.locations.head.from shouldBe 60000L
-        locationGot_2.locations.head.to shouldBe 120000L
+        locationGot_2.locations.foreach(_.from shouldBe 60000L)
+        locationGot_2.locations.foreach(_.to shouldBe 120000L)
       }
 
       awaitAssert {
@@ -236,8 +236,8 @@ class MetadataCoordinatorSpec
         locationGot_3.metric shouldBe metric
 
         locationGot_3.locations.size shouldBe 1
-        locationGot_3.locations.head.from shouldBe 60000L
-        locationGot_3.locations.head.to shouldBe 120000L
+        locationGot_3.locations.foreach(_.from shouldBe 60000L)
+        locationGot_3.locations.foreach(_.to shouldBe 120000L)
       }
 
     }
@@ -266,8 +266,8 @@ class MetadataCoordinatorSpec
       locationGot.metric shouldBe metric
       locationGot.locations.size shouldBe 1
 
-      locationGot.locations.head.from shouldBe 0L
-      locationGot.locations.head.to shouldBe 100L
+      locationGot.locations.foreach(_.from shouldBe 0L)
+      locationGot.locations.foreach(_.to shouldBe 100L)
 
       probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 101))
       val locationGot_2 = awaitAssert {
@@ -279,8 +279,8 @@ class MetadataCoordinatorSpec
       locationGot_2.metric shouldBe metric
 
       locationGot_2.locations.size shouldBe 1
-      locationGot_2.locations.head.from shouldBe 100L
-      locationGot_2.locations.head.to shouldBe 200L
+      locationGot_2.locations.foreach(_.from shouldBe 100L)
+      locationGot_2.locations.foreach(_.to shouldBe 200L)
 
       probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 202))
       val locationGot_3 = awaitAssert {
@@ -292,8 +292,8 @@ class MetadataCoordinatorSpec
       locationGot_3.metric shouldBe metric
 
       locationGot_3.locations.size shouldBe 1
-      locationGot_3.locations.head.from shouldBe 200L
-      locationGot_3.locations.head.to shouldBe 300L
+      locationGot_3.locations.foreach(_.from shouldBe 200L)
+      locationGot_3.locations.foreach(_.to shouldBe 300L)
     }
 
     "retrieve metric info" in {
@@ -393,15 +393,15 @@ class MetadataCoordinatorSpec
         expectMsgType[LocationsAdded]
       }
 
-      metadataCache ! AddNodeToBlackList(node1)
-      awaitAssert {
-        expectMsgType[NodeToBlackListAdded].node shouldBe node1
-      }
-
       awaitAssert {
         metadataCoordinator ! GetLiveLocations(db, namespace, metric)
         val locations = expectMsgType[LiveLocationsGot].locations
         locations.size shouldBe 4
+      }
+
+      metadataCache ! AddNodeToBlackList(node1)
+      awaitAssert {
+        expectMsgType[NodeToBlackListAdded].node shouldBe node1
       }
 
       awaitAssert {
