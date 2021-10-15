@@ -51,8 +51,8 @@ object CommandApiSpec {
     override def receive: Receive = {
       case GetTopology =>
         sender() ! TopologyGot(Set(NSDbNode("address", "fs", "volatile")))
-      case GetLocations(db, namespace, metric) =>
-        sender() ! LocationsGot(db, namespace, metric, Seq(Location.empty))
+      case GetLiveLocations(db, namespace, metric) =>
+        sender() ! LiveLocationsGot(db, namespace, metric, Seq(Location.empty))
       case GetMetricInfo(db, namespace, "metricWithoutInfo") =>
         sender() ! MetricInfoGot(db, namespace, "metricWithoutInfo", None)
       case GetMetricInfo(db, namespace, "nonExistingMetric") =>
@@ -99,7 +99,7 @@ class CommandApiSpec extends NSDbFlatSpec with ScalatestRouteTest with CommandAp
     Get("/commands/locations/db/namespace/metric").withHeaders(RawHeader("testHeader", "testHeader")) ~> testSecuredRoutes ~> check {
       status shouldBe OK
       val entity = entityAs[String]
-      entity shouldBe write(LocationsGot("db", "namespace", "metric", Seq(Location.empty)))
+      entity shouldBe write(LiveLocationsGot("db", "namespace", "metric", Seq(Location.empty)))
     }
   }
 

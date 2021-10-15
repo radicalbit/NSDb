@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.util.concurrent.TimeUnit
 import akka.actor._
 import akka.cluster.ddata.DurableStore.{LoadAll, LoadData}
 import akka.cluster.ddata._
@@ -36,7 +35,6 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.deleteStatemen
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.logic.WriteConfig.MetadataConsistency.MetadataConsistency
 import io.radicalbit.nsdb.cluster.logic.WriteNodesSelectionLogic
-import io.radicalbit.nsdb.util.ErrorManagementUtils.{partitionResponses, _}
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -48,7 +46,9 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.statement.TimeRangeManager
 import io.radicalbit.nsdb.util.ActorPathLogging
+import io.radicalbit.nsdb.util.ErrorManagementUtils._
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -158,6 +158,31 @@ class MetadataCoordinator(clusterListener: ActorRef,
           post(MetricInfo(db, namespace, metric, defaultShardingInterval, retention))
         case _ => post(MetricInfo(db, namespace, metric, defaultShardingInterval))
       }
+
+  /**
+    * A live location is a location that is not blacklisted and it's consider safe to fetch data from.
+    * @param db the db.
+    * @param namespace the namespace.
+    * @param metric the metric.
+    * @return a [[LiveLocationsGot]] containing the sequence of live locations. If an error occurs, a [[GetLiveLocationError]] is returned instead.
+    */
+  protected def getLiveLocation(db: String, namespace: String, metric: String): Future[GetLiveLocationsResponse] = {
+    (for {
+      allLocations <- (metadataCache ? GetLocationsFromCache(db, namespace, metric))
+        .mapTo[LocationsCached]
+      blacklist <- (metadataCache ? GetNodesBlackListFromCache)
+        .mapTo[GetNodesBlackListFromCacheResponse]
+    } yield
+      blacklist match {
+        case NodesBlackListFromCacheGot(blackList) =>
+          LiveLocationsGot(db, namespace, metric, allLocations.locations.filterNot(loc => blackList.contains(loc.node)))
+        case GetNodesBlackListFromCacheFailed(reason) => GetLiveLocationError(db, namespace, metric, reason)
+      }).recover {
+      case t =>
+        log.error(t, "Unexpected error while retrieving Nodes Blacklist")
+        GetLiveLocationError(db, namespace, metric, t.getMessage)
+    }
+  }
 
   override def preStart(): Unit = {
     mediator ! Subscribe(COORDINATORS_TOPIC, self)
@@ -445,11 +470,8 @@ class MetadataCoordinator(clusterListener: ActorRef,
           NamespaceDeleted(db, namespace)
         }
         .pipeTo(sender())
-    case GetLocations(db, namespace, metric) =>
-      (metadataCache ? GetLocationsFromCache(db, namespace, metric))
-        .mapTo[LocationsCached]
-        .map(l => LocationsGot(db, namespace, metric, l.locations))
-        .pipeTo(sender())
+    case GetLiveLocations(db, namespace, metric) =>
+      getLiveLocation(db, namespace, metric).pipeTo(sender())
     case GetWriteLocations(db, namespace, metric, timestamp) =>
       val clusterAliveMembers = nsdbClusterSnapshot.nodes
       log.debug(s"cluster alive members $clusterAliveMembers")
@@ -469,9 +491,9 @@ class MetadataCoordinator(clusterListener: ActorRef,
           if (retention > 0 && (timestamp < currentTime - retention || timestamp > currentTime + retention))
             Future(GetWriteLocationsBeyondRetention(db, namespace, metric, timestamp, metricInfo.retention))
           else {
-            (metadataCache ? GetLocationsFromCache(db, namespace, metric))
+            getLiveLocation(db, namespace, metric)
               .flatMap {
-                case LocationsCached(_, _, _, locations) =>
+                case LiveLocationsGot(_, _, _, locations) =>
                   locations.filter(location => location.contains(timestamp)) match {
                     case Nil =>
                       for {
@@ -505,7 +527,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                     case s => Future(WriteLocationsGot(db, namespace, metric, s))
                   }
                 case e =>
-                  val errorMessage = s"unexpected result while trying to get locations in cache $e"
+                  val errorMessage = s"unexpected result while trying to get live locations in cache $e"
                   Future(GetWriteLocationsFailed(db, namespace, metric, timestamp, errorMessage))
               }
           }
@@ -708,6 +730,7 @@ object MetadataCoordinator {
     trait RestoreMetadataResponse                                  extends NSDbSerializable
     case class MetadataRestored(path: String)                      extends RestoreMetadataResponse
     case class RestoreMetadataFailed(path: String, reason: String) extends RestoreMetadataResponse
+
   }
 
   def props(clusterListener: ActorRef,

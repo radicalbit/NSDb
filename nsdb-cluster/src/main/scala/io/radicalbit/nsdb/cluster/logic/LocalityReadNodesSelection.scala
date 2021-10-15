@@ -22,15 +22,15 @@ import io.radicalbit.nsdb.model.Location
   * ReadNodesSelection strategy that privileges local locations.
   * @param localNode the local node.
   */
-class LocalityReadNodesSelection(localNode: String) extends ReadNodesSelection {
+class LocalityReadNodesSelection(localNodeUniqueId: String) extends ReadNodesSelection {
 
   override def getDistinctLocationsByNode(locationsWithReplicas: Seq[Location]): Map[String, Seq[Location]] = {
-    assert(localNode != null)
+    assert(localNodeUniqueId != null)
     locationsWithReplicas
       .groupBy(l => (l.from, l.to))
       .map {
         case ((_, _), locations) if locations.size > 1 =>
-          locations.find(_.node.uniqueNodeId == localNode).getOrElse(locations.head)
+          locations.find(_.node.uniqueNodeId == localNodeUniqueId).getOrElse(locations.head)
         case ((_, _), locations) => locations.minBy(_.node.uniqueNodeId)
       }
       .toSeq

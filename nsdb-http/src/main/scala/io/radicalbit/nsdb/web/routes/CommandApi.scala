@@ -120,8 +120,8 @@ trait CommandApi {
           pathPrefix(Segment) { metric =>
             (pathEnd & get) {
               withMetricAuthorization(db, namespace, metric, false, authorizationProvider) {
-                onComplete(metadataCoordinator ? GetLocations(db, namespace, metric)) {
-                  case Success(response: LocationsGot) =>
+                onComplete(metadataCoordinator ? GetLiveLocations(db, namespace, metric)) {
+                  case Success(response: LiveLocationsGot) =>
                     complete(HttpEntity(ContentTypes.`application/json`, write(response)))
                   case Success(wrongResponse) =>
                     logger.error(s"received unexpected response $wrongResponse")

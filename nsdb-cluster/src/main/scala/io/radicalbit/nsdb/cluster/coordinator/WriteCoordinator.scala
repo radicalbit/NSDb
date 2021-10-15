@@ -441,7 +441,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
         locations <- Future
           .sequence {
             metrics.map(metric =>
-              (metadataCoordinator ? GetLocations(db, namespace, metric)).mapTo[LocationsGot].map(_.locations))
+              (metadataCoordinator ? GetLiveLocations(db, namespace, metric)).mapTo[LiveLocationsGot].map(_.locations))
           }
           .map(_.flatten)
         commitLogResponses <- Future.sequence {
@@ -492,10 +492,10 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
               (schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric))
                 .flatMap {
                   case SchemaGot(_, _, _, Some(schema)) =>
-                    (metadataCoordinator ? GetLocations(db, namespace, metric)).flatMap {
-                      case LocationsGot(_, _, _, locations) if locations.isEmpty =>
+                    (metadataCoordinator ? GetLiveLocations(db, namespace, metric)).flatMap {
+                      case LiveLocationsGot(_, _, _, locations) if locations.isEmpty =>
                         Future(DeleteStatementExecuted(statement.db, statement.metric, statement.metric))
-                      case LocationsGot(_, _, _, locations) =>
+                      case LiveLocationsGot(_, _, _, locations) =>
                         broadcastMessage(ExecuteDeleteStatementInternalInLocations(statement, schema, locations))
                       case _ =>
                         Future(
@@ -518,7 +518,9 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       }.pipeTo(sender())
     case msg @ DropMetric(db, namespace, metric) =>
       val chain = for {
-        locations <- (metadataCoordinator ? GetLocations(db, namespace, metric)).mapTo[LocationsGot].map(_.locations)
+        locations <- (metadataCoordinator ? GetLiveLocations(db, namespace, metric))
+          .mapTo[LiveLocationsGot]
+          .map(_.locations)
         commitLogResponses <- Future.sequence {
           locations
             .collect {

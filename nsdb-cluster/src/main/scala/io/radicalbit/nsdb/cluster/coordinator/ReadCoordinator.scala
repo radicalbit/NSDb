@@ -18,7 +18,6 @@ package io.radicalbit.nsdb.cluster.coordinator
 
 import java.math.{MathContext, RoundingMode}
 import java.util.concurrent.TimeUnit
-
 import akka.actor.{ActorRef, Props}
 import akka.cluster.pubsub.DistributedPubSubMediator.{Publish, Subscribe}
 import akka.pattern.ask
@@ -192,91 +191,102 @@ class ReadCoordinator(metadataCoordinator: ActorRef,
       val startTime                         = System.currentTimeMillis()
       implicit val timeContext: TimeContext = context.getOrElse(TimeContext())
       log.debug("executing {} with {} data actors", statement, metricsDataActors.size)
-      val selectStatementResponse: Future[ExecuteSelectStatementResponse] = Future
-        .sequence(
-          Seq(
-            schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric),
-            metadataCoordinator ? GetLocations(statement.db, statement.namespace, statement.metric)
-          ))
-        .flatMap {
-          case SchemaGot(_, _, _, Some(schema)) :: LocationsGot(_, _, _, locations) :: Nil =>
-            log.debug("found schema {} and locations {}", schema, locations)
-            val filteredLocations: Seq[Location] =
-              ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), locations)
 
-            val uniqueLocationsByNode: Map[String, Seq[Location]] =
-              readNodesSelection.getDistinctLocationsByNode(filteredLocations)
+      val selectStatementResponse: Future[ExecuteSelectStatementResponse] =
+        (for {
+          getSchemaResponse <- schemaCoordinator ? GetSchema(statement.db, statement.namespace, statement.metric)
+          liveLocationResponse <- metadataCoordinator ? GetLiveLocations(statement.db,
+                                                                         statement.namespace,
+                                                                         statement.metric)
+        } yield (getSchemaResponse, liveLocationResponse))
+          .recoverWith {
+            case t =>
+              log.error(t, s"Error in Execute Statement $statement")
+              Future(SelectStatementFailed(statement, "Generic error occurred"))
+          }
+          .flatMap {
+            case (SchemaGot(_, _, _, Some(schema)), LiveLocationsGot(_, _, _, liveLocations)) =>
+              log.debug(s"found schema $schema, and live $liveLocations")
+              val filteredLocations: Seq[Location] =
+                ReadNodesSelection.filterLocationsThroughTime(statement.condition.map(_.expression), liveLocations)
 
-            StatementParser.parseStatement(statement, schema) match {
-              case Right(ParsedSimpleQuery(_, _, _, _, false, _, _, _)) =>
-                gatherNodeResults(msg, schema, uniqueLocationsByNode)(applyOrderingWithLimit(_, statement, schema))
+              val uniqueLocationsByNode: Map[String, Seq[Location]] =
+                readNodesSelection.getDistinctLocationsByNode(filteredLocations)
 
-              case Right(ParsedSimpleQuery(_, _, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
-                val distinctField = fields.head.name
+              StatementParser.parseStatement(statement, schema) match {
+                case Right(ParsedSimpleQuery(_, _, _, _, false, _, _, _)) =>
+                  gatherNodeResults(msg, schema, uniqueLocationsByNode)(applyOrderingWithLimit(_, statement, schema))
 
-                gatherAndGroupNodeResults(msg, distinctField, schema, uniqueLocationsByNode) { bits =>
-                  Bit(
-                    timestamp = 0,
-                    value = NSDbNumericType(0),
-                    dimensions = retrieveField(bits, distinctField, (bit: Bit) => bit.dimensions),
-                    tags = retrieveField(bits, distinctField, (bit: Bit) => bit.tags)
-                  )
-                }.map(limitAndOrder(_))
+                case Right(ParsedSimpleQuery(_, _, _, _, true, _, fields, _)) if fields.lengthCompare(1) == 0 =>
+                  val distinctField = fields.head.name
 
-              case Right(ParsedGlobalAggregatedQuery(_, _, _, _, _, fields, aggregations, _)) =>
-                gatherNodeResults(msg, schema, uniqueLocationsByNode) { rawResults =>
-                  globalAggregationReduce(rawResults, fields, aggregations, statement, schema)
-                }
-              case Right(ParsedAggregatedQuery(_, _, _, _, aggregation, _, _)) =>
-                gatherAndGroupNodeResults(msg, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
-                  internalAggregationReduce(_, schema, aggregation)
-                ).map(limitAndOrder(_, Some(aggregation)))
+                  gatherAndGroupNodeResults(msg, distinctField, schema, uniqueLocationsByNode) { bits =>
+                    Bit(
+                      timestamp = 0,
+                      value = NSDbNumericType(0),
+                      dimensions = retrieveField(bits, distinctField, (bit: Bit) => bit.dimensions),
+                      tags = retrieveField(bits, distinctField, (bit: Bit) => bit.tags)
+                    )
+                  }.map(limitAndOrder(_))
 
-              case Right(
-                  ParsedTemporalAggregatedQuery(_, _, _, _, rangeLength, aggregation, condition, _, gracePeriod, _)) =>
-                val sortedLocations = filteredLocations.sortBy(_.from)
-                val limitedLocations = gracePeriod.fold(sortedLocations)(gracePeriodInterval =>
-                  ReadNodesSelection.filterLocationsThroughGracePeriod(gracePeriodInterval, sortedLocations))
-
-                val timeRangeContext: Option[TimeRangeContext] =
-                  if (limitedLocations.isEmpty) None
-                  else {
-
-                    val upperBound = limitedLocations.last.to
-                    val lowerBound = limitedLocations.head.from
-
-                    Some(
-                      TimeRangeContext(upperBound,
-                                       lowerBound,
-                                       rangeLength,
-                                       TimeRangeManager.computeRangesForIntervalAndCondition(upperBound,
-                                                                                             lowerBound,
-                                                                                             rangeLength,
-                                                                                             condition,
-                                                                                             gracePeriod)))
+                case Right(ParsedGlobalAggregatedQuery(_, _, _, _, _, fields, aggregations, _)) =>
+                  gatherNodeResults(msg, schema, uniqueLocationsByNode) { rawResults =>
+                    globalAggregationReduce(rawResults, fields, aggregations, statement, schema)
                   }
+                case Right(ParsedAggregatedQuery(_, _, _, _, aggregation, _, _)) =>
+                  gatherAndGroupNodeResults(msg, statement.groupBy.get.field, schema, uniqueLocationsByNode)(
+                    internalAggregationReduce(_, schema, aggregation)
+                  ).map(limitAndOrder(_, Some(aggregation)))
 
-                val limitedUniqueLocationsByNode = readNodesSelection.getDistinctLocationsByNode(limitedLocations)
+                case Right(
+                    ParsedTemporalAggregatedQuery(_,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  rangeLength,
+                                                  aggregation,
+                                                  condition,
+                                                  _,
+                                                  gracePeriod,
+                                                  _)) =>
+                  val sortedLocations = filteredLocations.sortBy(_.from)
+                  val limitedLocations = gracePeriod.fold(sortedLocations)(gracePeriodInterval =>
+                    ReadNodesSelection.filterLocationsThroughGracePeriod(gracePeriodInterval, sortedLocations))
 
-                gatherNodeResults(msg, schema, limitedUniqueLocationsByNode, timeRangeContext)(
-                  postProcessingTemporalQueryResult(schema, statement, aggregation))
+                  val timeRangeContext: Option[TimeRangeContext] =
+                    if (limitedLocations.isEmpty) None
+                    else {
 
-              case Left(error) =>
-                Future(SelectStatementFailed(statement, error))
-              case _ =>
-                Future(SelectStatementFailed(statement, "Not a select statement."))
-            }
-          case _ =>
-            Future(
-              SelectStatementFailed(statement,
-                                    s"Metric ${statement.metric} does not exist ",
-                                    MetricNotFound(statement.metric)))
-        }
-        .recoverWith {
-          case t =>
-            log.error(t, s"Error in Execute Statement $statement")
-            Future(SelectStatementFailed(statement, "Generic error occurred"))
-        }
+                      val upperBound = limitedLocations.last.to
+                      val lowerBound = limitedLocations.head.from
+
+                      Some(
+                        TimeRangeContext(upperBound,
+                                         lowerBound,
+                                         rangeLength,
+                                         TimeRangeManager.computeRangesForIntervalAndCondition(upperBound,
+                                                                                               lowerBound,
+                                                                                               rangeLength,
+                                                                                               condition,
+                                                                                               gracePeriod)))
+                    }
+
+                  val limitedUniqueLocationsByNode = readNodesSelection.getDistinctLocationsByNode(limitedLocations)
+
+                  gatherNodeResults(msg, schema, limitedUniqueLocationsByNode, timeRangeContext)(
+                    postProcessingTemporalQueryResult(schema, statement, aggregation))
+
+                case Left(error) =>
+                  Future(SelectStatementFailed(statement, error))
+                case _ =>
+                  Future(SelectStatementFailed(statement, "Not a select statement."))
+              }
+            case _ =>
+              Future(
+                SelectStatementFailed(statement,
+                                      s"Metric ${statement.metric} does not exist ",
+                                      MetricNotFound(statement.metric)))
+          }
 
       selectStatementResponse.pipeToWithEffect(sender()) { _ =>
         if (perfLogger.isDebugEnabled)

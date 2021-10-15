@@ -17,11 +17,11 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{ActorSystem, Props}
-import akka.pattern._
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import io.radicalbit.nsdb.cluster.actor.MetricsDataActor.ExecuteDeleteStatementInternalInLocations
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{AddNodeToBlackList, NodeToBlackListAdded}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events._
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors.{
@@ -35,12 +35,10 @@ import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.MetricInfoGot
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.test.NSDbSpecLike
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{LocationsGot, MetricInfoGot}
 import org.scalatest._
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class MetadataCoordinatorSpec
@@ -79,27 +77,41 @@ class MetadataCoordinatorSpec
   val namespace = "testNamespace"
   val metric    = "testMetric"
 
-  implicit val timeout = Timeout(10 seconds)
-
   val node1 = NSDbNode("localhost_2552", "node_01", "volatile1")
   val node2 = NSDbNode("localhost_2553", "node_02", "volatile2")
+
+  val loc11 = Location(metric, node1, 0L, 30000L)
+  val loc21 = Location(metric, node2, 0L, 30000L)
+  val loc12 = Location(metric, node1, 30000L, 60000L)
+  val loc22 = Location(metric, node2, 30000L, 60000L)
+
+  implicit val timeout = Timeout(5 seconds)
 
   override def beforeAll = {
     NSDbClusterSnapshot(system).addNode(node1)
     NSDbClusterSnapshot(system).addNode(node2)
 
-    Await.result(metadataCoordinator ? SubscribeCommitLogCoordinator(commitLogCoordinator, node1.uniqueNodeId),
-                 10 seconds)
-    Await.result(metadataCoordinator ? SubscribeMetricsDataActor(metricsDataActorProbe.ref, node1.uniqueNodeId),
-                 10 seconds)
+    metadataCoordinator ! SubscribeCommitLogCoordinator(commitLogCoordinator, node1.uniqueNodeId)
+    awaitAssert {
+      expectMsgType[CommitLogCoordinatorSubscribed]
+    }
+    metadataCoordinator ! SubscribeMetricsDataActor(metricsDataActorProbe.ref, node1.uniqueNodeId)
+    awaitAssert {
+      expectMsgType[MetricsDataActorSubscribed]
+    }
 
     val nameRecord = Bit(0, 1, Map("name" -> "name"), Map("city" -> "milano"))
-    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric, nameRecord), 10 seconds)
+    schemaCoordinator ! UpdateSchemaFromRecord(db, namespace, metric, nameRecord)
+    awaitAssert {
+      expectMsgType[SchemaUpdated]
+    }
   }
 
   override def beforeEach: Unit = {
-    implicit val timeout = Timeout(5 seconds)
-    Await.result(metadataCache ? DeleteAll, 5 seconds)
+    metadataCache ! DeleteAll
+    awaitAssert {
+      expectMsgType[DeleteDone.type]
+    }
   }
 
   "MetadataCoordinator" should {
@@ -118,9 +130,9 @@ class MetadataCoordinatorSpec
       locationAdded.namespace shouldBe namespace
       locationAdded.locations.sortBy(_.to) shouldBe locations
 
-      probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+      probe.send(metadataCoordinator, GetLiveLocations(db, namespace, metric))
       awaitAssert {
-        probe.expectMsgType[LocationsGot].locations.sortBy(_.to) shouldBe locations
+        probe.expectMsgType[LiveLocationsGot].locations.sortBy(_.to) shouldBe locations
       }
     }
 
@@ -135,9 +147,9 @@ class MetadataCoordinatorSpec
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+      probe.send(metadataCoordinator, GetLiveLocations(db, namespace, metric))
       val retrievedLocations = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+        probe.expectMsgType[LiveLocationsGot]
       }
 
       retrievedLocations.locations.size shouldBe 2
@@ -155,11 +167,6 @@ class MetadataCoordinatorSpec
     }
 
     "retrieve Locations for a metric" in {
-
-      val loc11 = Location(metric, node1, 0L, 30000L)
-      val loc21 = Location(metric, node2, 0L, 30000L)
-      val loc12 = Location(metric, node1, 30000L, 60000L)
-      val loc22 = Location(metric, node2, 30000L, 60000L)
 
       probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(loc11)))
       awaitAssert {
@@ -181,9 +188,9 @@ class MetadataCoordinatorSpec
         probe.expectMsgType[LocationsAdded]
       }
 
-      probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
+      probe.send(metadataCoordinator, GetLiveLocations(db, namespace, metric))
       val retrievedLocations = awaitAssert {
-        probe.expectMsgType[LocationsGot]
+        probe.expectMsgType[LiveLocationsGot]
       }
 
       retrievedLocations.locations.size shouldBe 4
@@ -205,8 +212,8 @@ class MetadataCoordinatorSpec
         locationGot.metric shouldBe metric
 
         locationGot.locations.size shouldBe 1
-        locationGot.locations.head.from shouldBe 0L
-        locationGot.locations.head.to shouldBe 60000L
+        locationGot.locations.foreach(_.from shouldBe 0L)
+        locationGot.locations.foreach(_.to shouldBe 60000L)
       }
 
       awaitAssert {
@@ -217,8 +224,8 @@ class MetadataCoordinatorSpec
         locationGot_2.metric shouldBe metric
 
         locationGot_2.locations.size shouldBe 1
-        locationGot_2.locations.head.from shouldBe 60000L
-        locationGot_2.locations.head.to shouldBe 120000L
+        locationGot_2.locations.foreach(_.from shouldBe 60000L)
+        locationGot_2.locations.foreach(_.to shouldBe 120000L)
       }
 
       awaitAssert {
@@ -229,8 +236,8 @@ class MetadataCoordinatorSpec
         locationGot_3.metric shouldBe metric
 
         locationGot_3.locations.size shouldBe 1
-        locationGot_3.locations.head.from shouldBe 60000L
-        locationGot_3.locations.head.to shouldBe 120000L
+        locationGot_3.locations.foreach(_.from shouldBe 60000L)
+        locationGot_3.locations.foreach(_.to shouldBe 120000L)
       }
 
     }
@@ -259,8 +266,8 @@ class MetadataCoordinatorSpec
       locationGot.metric shouldBe metric
       locationGot.locations.size shouldBe 1
 
-      locationGot.locations.head.from shouldBe 0L
-      locationGot.locations.head.to shouldBe 100L
+      locationGot.locations.foreach(_.from shouldBe 0L)
+      locationGot.locations.foreach(_.to shouldBe 100L)
 
       probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 101))
       val locationGot_2 = awaitAssert {
@@ -272,8 +279,8 @@ class MetadataCoordinatorSpec
       locationGot_2.metric shouldBe metric
 
       locationGot_2.locations.size shouldBe 1
-      locationGot_2.locations.head.from shouldBe 100L
-      locationGot_2.locations.head.to shouldBe 200L
+      locationGot_2.locations.foreach(_.from shouldBe 100L)
+      locationGot_2.locations.foreach(_.to shouldBe 200L)
 
       probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 202))
       val locationGot_3 = awaitAssert {
@@ -285,11 +292,11 @@ class MetadataCoordinatorSpec
       locationGot_3.metric shouldBe metric
 
       locationGot_3.locations.size shouldBe 1
-      locationGot_3.locations.head.from shouldBe 200L
-      locationGot_3.locations.head.to shouldBe 300L
+      locationGot_3.locations.foreach(_.from shouldBe 200L)
+      locationGot_3.locations.foreach(_.to shouldBe 300L)
     }
 
-    "retrieve metric infos" in {
+    "retrieve metric info" in {
 
       val metricInfo = MetricInfo(db, namespace, metric, 100)
 
@@ -353,14 +360,14 @@ class MetadataCoordinatorSpec
       }
 
       awaitAssert {
-        probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
-        val locationsGot = probe.expectMsgType[LocationsGot]
+        probe.send(metadataCoordinator, GetLiveLocations(db, namespace, metric))
+        val locationsGot = probe.expectMsgType[LiveLocationsGot]
         locationsGot.locations.sortBy(_.from) shouldBe locations
       }
 
       awaitAssert {
-        probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
-        val locationsGot = probe.expectMsgType[LocationsGot]
+        probe.send(metadataCoordinator, GetLiveLocations(db, namespace, metric))
+        val locationsGot = probe.expectMsgType[LiveLocationsGot]
         locationsGot.locations.sortBy(_.from) shouldBe locations.takeRight(2)
       }
 
@@ -370,8 +377,8 @@ class MetadataCoordinatorSpec
       }
 
       awaitAssert {
-        probe.send(metadataCoordinator, GetLocations(db, namespace, metric))
-        val locationsGot = probe.expectMsgType[LocationsGot]
+        probe.send(metadataCoordinator, GetLiveLocations(db, namespace, metric))
+        val locationsGot = probe.expectMsgType[LiveLocationsGot]
         locationsGot.locations.sortBy(_.from) shouldBe locations.takeRight(1)
 
         val deleteCommand = metricsDataActorProbe.expectMsgType[ExecuteDeleteStatementInternalInLocations]
@@ -379,6 +386,32 @@ class MetadataCoordinatorSpec
       }
     }
 
+    "exclude blacklisted nodes from location" in {
+
+      metadataCoordinator ! AddLocations(db, namespace, Seq(loc11, loc12, loc21, loc22))
+      awaitAssert {
+        expectMsgType[LocationsAdded]
+      }
+
+      awaitAssert {
+        metadataCoordinator ! GetLiveLocations(db, namespace, metric)
+        val locations = expectMsgType[LiveLocationsGot].locations
+        locations.size shouldBe 4
+      }
+
+      metadataCache ! AddNodeToBlackList(node1)
+      awaitAssert {
+        expectMsgType[NodeToBlackListAdded].node shouldBe node1
+      }
+
+      awaitAssert {
+        metadataCoordinator ! GetLiveLocations(db, namespace, metric)
+        val locations = expectMsgType[LiveLocationsGot].locations
+        locations.size shouldBe 2
+        locations should contain(loc21)
+        locations should contain(loc22)
+      }
+    }
   }
 
 }

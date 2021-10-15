@@ -157,11 +157,11 @@ object ReplicatedMetadataCache {
   final case class NodeToBlackListAdded(node: NSDbNode)                     extends AddNodeToBlackListResponse
   final case class AddNodeToBlackListFailed(node: NSDbNode, reason: String) extends AddNodeToBlackListResponse
 
-  final case class NSDbNodeWithTtl(node: NSDbNode, createdAt: Long) extends NSDbSerializable
-  final case object GetNodesBlackList                               extends NSDbSerializable
-  sealed trait GetNodesBlackListResponse                            extends NSDbSerializable
-  final case class NodesBlackListGot(blacklist: Set[NSDbNode])      extends GetNodesBlackListResponse
-  final case class GetNodesBlackListFailed(reason: String)          extends GetNodesBlackListResponse
+  final case class NSDbNodeWithTtl(node: NSDbNode, createdAt: Long)     extends NSDbSerializable
+  final case object GetNodesBlackListFromCache                          extends NSDbSerializable
+  sealed trait GetNodesBlackListFromCacheResponse                       extends NSDbSerializable
+  final case class NodesBlackListFromCacheGot(blacklist: Set[NSDbNode]) extends GetNodesBlackListFromCacheResponse
+  final case class GetNodesBlackListFromCacheFailed(reason: String)     extends GetNodesBlackListFromCacheResponse
 
   final case object CheckBlackListTtl                                               extends NSDbSerializable
   final case class RemoveNodesFromBlacklist(nodesToBeRemoved: Set[NSDbNodeWithTtl]) extends NSDbSerializable
@@ -413,7 +413,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case GetMetricsFromCache(db, namespace) =>
       log.debug("searching for key {} in cache", coordinatesKey)
       replicator ! Get(coordinatesKey, ReadLocal, request = Some(MetricRequest(db, namespace, sender())))
-    case GetNodesBlackList =>
+    case GetNodesBlackListFromCache =>
       log.debug("searching for nodes blacklist")
       replicator ! Get(nodesBlacklistKey, ReadLocal, Some(NodesBlackListRequest(sender())))
     case DropMetricFromCache(db, namespace, metric) =>
@@ -544,7 +544,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       replyTo ! MetricsFromCacheGot(db, namespace, elements)
     case g @ GetSuccess(_, Some(NodesBlackListRequest(replyTo))) =>
       val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
-      replyTo ! NodesBlackListGot(elements.map(_.node))
+      replyTo ! NodesBlackListFromCacheGot(elements.map(_.node))
     case g @ GetSuccess(_, Some(NodesBlackListInternalRequest)) =>
       val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
       self ! RemoveNodesFromBlacklist(elements.filter(e => System.currentTimeMillis > e.createdAt + blackListTtl))
@@ -555,7 +555,7 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case NotFound(_, Some(OutdatedLocationsRequest(replyTo))) =>
       replyTo ! OutdatedLocationsFromCacheGot(Set.empty)
     case NotFound(_, Some(NodesBlackListRequest(replyTo))) =>
-      replyTo ! NodesBlackListGot(Set.empty)
+      replyTo ! NodesBlackListFromCacheGot(Set.empty)
     case NotFound(_, Some(NodesBlackListInternalRequest)) => //do nothing
     case NotFound(_, Some(MetricInfoRequest(key, replyTo))) =>
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
