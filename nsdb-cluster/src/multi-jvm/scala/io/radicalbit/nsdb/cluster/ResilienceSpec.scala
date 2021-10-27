@@ -3,9 +3,12 @@ package io.radicalbit.nsdb.cluster
 import akka.cluster.MemberStatus
 import akka.pattern.ask
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
+import akka.testkit.TestProbe
 import akka.util.Timeout
 import com.typesafe.config.ConfigFactory
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{GetNodesBlackListFromCache, NodesBlackListFromCacheGot}
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.GetWriteLocations
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{GetWriteLocationsFailed, WriteLocationsGot}
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{GetNodeChildActors, NodeChildActorsGot}
 import io.radicalbit.nsdb.{NSDbMultiNodeDynamicNameActorsSupport, NSDbMultiNodeFailuresSupport, NSDbMultiNodeSpec}
@@ -37,6 +40,8 @@ abstract class ResilienceSpec extends MultiNodeSpec(ResilienceSpec) with NSDbMul
 
   implicit val timeout: Timeout = Timeout(5 seconds)
 
+  val probe = TestProbe()
+
   "NSDb Cluster" must {
 
     "join cluster" in {
@@ -50,6 +55,18 @@ abstract class ResilienceSpec extends MultiNodeSpec(ResilienceSpec) with NSDbMul
       }
 
       enterBarrier("joined")
+    }
+
+    "retrieve locations given a full replication factor" in {
+      metadataCoordinator() ! GetWriteLocations("db", "namespace", "metric", 1L, initialParticipants)
+
+      val writeLocationsGot = awaitAssert {
+        expectMsgType[WriteLocationsGot]
+      }
+
+      writeLocationsGot.locations.size shouldBe 5
+      writeLocationsGot.locations.map(_.node.nodeFsId).sorted shouldBe Seq(node1.name, node2.name, node3.name, node4.name, node5.name)
+
     }
 
     "create a blacklist for unreachable nodes" in {
@@ -74,6 +91,23 @@ abstract class ResilienceSpec extends MultiNodeSpec(ResilienceSpec) with NSDbMul
       }
 
       enterBarrier("1 nodes cluster")
+    }
+
+    "refuse to get locations for a replication factor higher then the alive members" in {
+      metadataCoordinator() ! GetWriteLocations("db", "namespace", "metric", 1L, initialParticipants)
+
+      expectMsgType[GetWriteLocationsFailed]
+
+      runOn(node3, node4, node5) {
+        metadataCoordinator() ! GetWriteLocations("db", "namespace", "metric", 1L, initialParticipants -2)
+
+        val writeLocationsGot = awaitAssert {
+          expectMsgType[WriteLocationsGot]
+        }
+        
+        writeLocationsGot.locations.size shouldBe 3
+        writeLocationsGot.locations.map(_.node.nodeFsId).sorted shouldBe Seq(node3.name, node4.name, node5.name)
+      }
     }
 
     "restore cluster state failure resolution" in {

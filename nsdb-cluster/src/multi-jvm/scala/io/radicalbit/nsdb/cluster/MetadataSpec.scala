@@ -151,7 +151,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with NSDbMultiNodeSpec wi
     }
 
     "get write locations" in {
-      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", 0)
+      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", 0, initialParticipants)
 
       awaitAssert{
         expectMsgType[GetWriteLocationsBeyondRetention]
@@ -159,14 +159,14 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with NSDbMultiNodeSpec wi
 
       val currentTime = System.currentTimeMillis()
 
-      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime)
+      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime, initialParticipants)
 
       awaitAssert{
         val reply = expectMsgType[WriteLocationsGot]
         reply.db shouldBe "db"
         reply.namespace shouldBe "namespace"
         reply.metric shouldBe "metric"
-        reply.locations.size shouldBe 2
+        reply.locations.size shouldBe initialParticipants
       }
 
       enterBarrier("after-get-write-locations")
@@ -215,7 +215,7 @@ class MetadataSpec extends MultiNodeSpec(MetadataSpec) with NSDbMultiNodeSpec wi
 
       val currentTime = System.currentTimeMillis()
 
-      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime)
+      metadataCoordinator ! GetWriteLocations("db", "namespace", "metric", currentTime, initialParticipants)
 
       awaitAssert{
         val reply = expectMsgType[GetWriteLocationsFailed]

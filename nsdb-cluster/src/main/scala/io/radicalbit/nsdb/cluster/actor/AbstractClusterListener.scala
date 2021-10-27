@@ -238,7 +238,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
       NSDbClusterSnapshot(context.system).removeNode(nodeAddress)
 
     case ReachableMember(member) =>
-      log.error(s"Member detected as reachable: $member ")
+      log.warning(s"Member detected as reachable: $member ")
 
       whitelistNode(createNodeAddress(member))
 
