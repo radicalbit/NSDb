@@ -19,18 +19,18 @@ package io.radicalbit.nsdb.cluster.extension
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import io.radicalbit.nsdb.common.protocol.NSDbNode
 
-import scala.collection.JavaConverters._
+import java.util.UUID
 
 /**
   * Extension that is inspired by the akka [[akka.cluster.Cluster]] extension with the purpose to store the current snapshot for a NSDb cluster.
   * Besides the (already provided by akka) [[akka.cluster.Member]] information, the unique node identifier is snapshot
   * and associated to an address, which may vary.
   */
-class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extension {
+class NSDbClusterSnapshotExtension(system: ExtendedActorSystem)
+    extends Extension
+    with SynchronizedMap[String, NSDbNode] {
 
-  import java.util.concurrent.ConcurrentHashMap
-
-  private val threadSafeMap: ConcurrentHashMap[String, NSDbNode] = new ConcurrentHashMap[String, NSDbNode]()
+  val instanceId = UUID.randomUUID()
 
   /**
     * Adds a node and associate it to the a unique identifier
@@ -39,30 +39,45 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem) extends Extensio
     * @param volatileId the node volatile id
     */
   def addNode(address: String, nodeId: String, volatileId: String): NSDbNode = {
-    system.log.debug(s"adding node with address $address and $nodeId to $threadSafeMap")
-    threadSafeMap.put(address, NSDbNode(address, nodeId, volatileId))
+    system.log.debug(s"adding node with address $address and $nodeId to ${values}")
+//    threadSafeMap.put(address, NSDbNode(address, nodeId, volatileId))
+    val node = NSDbNode(address, nodeId, volatileId)
+    accumulate(address, node)
+    node
   }
 
   def addNode(node: NSDbNode): NSDbNode = {
-    system.log.debug(s"adding node with address ${node.nodeAddress} to $threadSafeMap")
-    threadSafeMap.put(node.nodeAddress, node)
+//    system.log.debug(s"adding node with address ${node.nodeAddress} to $threadSafeMap")
+    accumulate(node.nodeAddress, node)
+    node
   }
 
   /**
     * Removes a node.
     * @param address the actual node address.
     */
-  def removeNode(address: String): NSDbNode = {
-    system.log.warning(s"removing node with address $address from $threadSafeMap")
-    threadSafeMap.remove(address)
+  def removeNode(address: String): Unit = {
+//    system.log.error(s"removing node with address $address from ${values.map(e => e.nodeFsId)}")
+//    system.log.error(s"removing from instanceId $instanceId")
+//    val r = threadSafeMap.remove(address)
+//    system.log.error(s"after removing address $address: ${threadSafeMap.asScala.map(e => (e._1, e._2.nodeFsId))}")
+//    r
+
+    pop(address)
+    system.log.error(s"removed node with address $address from ${values.map(e => e.nodeFsId)}")
   }
 
   /**
     * Returns the current active nodes
     */
-  def nodes: Iterable[NSDbNode] = threadSafeMap.asScala.values
+  def nodes: Iterable[NSDbNode] = {
+//    system.log.error(s"getting from instanceId $instanceId")
+//    threadSafeMap.asScala.values
+    values
+  }
 
-  def getNode(address: String): NSDbNode = threadSafeMap.get(address)
+  def getNode(address: String): NSDbNode = get(address).get //threadSafeMap.get(address)
+
 }
 
 object NSDbClusterSnapshot extends ExtensionId[NSDbClusterSnapshotExtension] with ExtensionIdProvider {
