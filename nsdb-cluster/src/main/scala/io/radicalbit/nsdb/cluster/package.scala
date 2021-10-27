@@ -42,7 +42,6 @@ package object cluster {
     final val COORDINATORS_TOPIC   = "coordinators"
     final val NODE_GUARDIANS_TOPIC = "node-guardians"
     final val NSDB_METRICS_TOPIC   = "nsdb-metrics"
-    final val NSDB_LISTENERS_TOPIC = "nsdb-listeners"
   }
 
   final val VOLATILE_ID_LENGTH: Int = 10

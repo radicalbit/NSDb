@@ -29,6 +29,16 @@ import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster._
 import io.radicalbit.nsdb.cluster.actor.NSDbMetricsEvents._
 import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.UpdateVolatileId
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
+  AddNodeToBlackList,
+  AddNodeToBlackListResponse,
+  GetNodesBlackListFromCache,
+  GetNodesBlackListFromCacheResponse,
+  NodeFromBlacklistRemoved,
+  NodeToBlackListAdded,
+  RemoveNodeFromBlackList,
+  RemoveNodeFromBlacklistResponse
+}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   AddLocations,
   GetOutdatedLocations,
@@ -64,10 +74,10 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   import context.dispatcher
 
-  protected lazy val cluster           = Cluster(context.system)
-  private lazy val clusterMetricSystem = ClusterMetricsExtension(context.system)
-  protected lazy val selfNodeName      = createNodeAddress(cluster.selfMember)
-  protected lazy val nodeFsId          = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
+  protected val cluster           = Cluster(context.system)
+  private val clusterMetricSystem = ClusterMetricsExtension(context.system)
+  protected val selfNodeName      = createNodeAddress(cluster.selfMember)
+  protected val nodeFsId          = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -99,11 +109,10 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
   def enableClusterMetricsExtension: Boolean
 
   override def preStart(): Unit = {
-    cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[UnreachableMember])
+    cluster.subscribe(self, initialStateMode = InitialStateAsEvents, classOf[MemberEvent], classOf[ReachabilityEvent])
     log.info("Created ClusterListener at path {} and subscribed to member events", self.path)
     if (enableClusterMetricsExtension) clusterMetricSystem.subscribe(self)
     mediator ! Subscribe(NSDB_METRICS_TOPIC, self)
-    mediator ! Subscribe(NSDB_LISTENERS_TOPIC, self)
   }
 
   override def postStop(): Unit = cluster.unsubscribe(self)
@@ -125,11 +134,34 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
       log.error(s"RemoveNodeMetadataFailed for node $nodeName")
   }
 
-  private def unsubscribeNode(otherNodeId: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
-    log.info(s"unsubscribing node $otherNodeId from node $nodeFsId")
+  private def blacklistNode(otherNode: NSDbNode)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
+    log.info(s"blacklist node $otherNode from node $nodeFsId")
+    (for {
+      NodeChildActorsGot(metadataCoordinator, _, _, _) <- (context.parent ? GetNodeChildActors)
+        .mapTo[NodeChildActorsGot]
+      blackListResponse <- (metadataCoordinator ? AddNodeToBlackList(otherNode)).mapTo[AddNodeToBlackListResponse]
+    } yield blackListResponse)
+      .retry(delay, retries)(_.isInstanceOf[NodeToBlackListAdded])
+  }
+
+  private def whitelistNode(address: String)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
+    log.info(s"whitelist node address $address")
+    (for {
+      NodeChildActorsGot(metadataCoordinator, _, _, _) <- (context.parent ? GetNodeChildActors)
+        .mapTo[NodeChildActorsGot]
+      blackListResponse <- (metadataCoordinator ? RemoveNodeFromBlackList(address))
+        .mapTo[RemoveNodeFromBlacklistResponse]
+    } yield blackListResponse)
+      .retry(delay, retries)(_.isInstanceOf[NodeFromBlacklistRemoved])
+  }
+
+  private def unsubscribeNode(otherNode: NSDbNode)(implicit scheduler: Scheduler, _log: LoggingAdapter) = {
+    log.info(s"unsubscribing node $otherNode from node $nodeFsId")
+    val otherNodeId = otherNode.uniqueNodeId
     (for {
       NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, _) <- (context.parent ? GetNodeChildActors)
         .mapTo[NodeChildActorsGot]
+      _ <- metadataCoordinator ? AddNodeToBlackList(otherNode)
       _ <- (readCoordinator ? UnsubscribeMetricsDataActor(otherNodeId)).mapTo[MetricsDataActorUnSubscribed]
       _ <- (writeCoordinator ? UnSubscribeCommitLogCoordinator(otherNodeId))
         .mapTo[CommitLogCoordinatorUnSubscribed]
@@ -149,7 +181,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   def receive: Receive = {
     case MemberUp(member) if member == cluster.selfMember =>
-      log.info(s"Member with nodeId $nodeFsId and address ${member.address} is Up")
+      log.error(s"Member with nodeId $nodeFsId and address ${member.address} is Up")
 
       val volatileId = RandomStringUtils.randomAlphabetic(VOLATILE_ID_LENGTH)
 
@@ -193,35 +225,40 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
                (success, failures))) if failures.isEmpty =>
             log.info(s"location ${success} successfully added for node $nodeFsId")
 
-            val interval =
-              FiniteDuration(context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
-                             TimeUnit.SECONDS)
-
-            context.system.scheduler.schedule(interval, interval) {
-              mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(node))
-            }
-
             mediator ! Subscribe(NODE_GUARDIANS_TOPIC, nodeActorsGuardian)
-            mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(node))
+            mediator ! Publish(NODE_GUARDIANS_TOPIC, NodeAlive(node))
             NSDbClusterSnapshot(context.system).addNode(node)
             onSuccessBehaviour(readCoordinator, writeCoordinator, metadataCoordinator, publisherActor)
           case e =>
             onFailureBehaviour(member, e)
         }
-    case NodeAlive(node) =>
-      NSDbClusterSnapshot(context.system).addNode(node)
-    case UnreachableMember(member) =>
-      log.info("Member detected as unreachable: {}", member)
+    case UnreachableMember(member) if member != cluster.selfMember =>
+      val nodeAddress  = createNodeAddress(member)
+      val nodeToRemove = NSDbClusterSnapshot(context.system).getNode(createNodeAddress(member))
+
+      log.error(s"Member detected as unreachable: $member mapped as $nodeToRemove")
+
+      blacklistNode(nodeToRemove)
+
+      NSDbClusterSnapshot(context.system).removeNode(nodeAddress)
+
+    case ReachableMember(member) =>
+      log.error(s"Member detected as reachable: $member ")
+
+      whitelistNode(createNodeAddress(member))
+
     case MemberRemoved(member, previousStatus) if member != cluster.selfMember =>
       log.warning("{} Member is Removed: {} after {}", selfNodeName, member.address, previousStatus)
 
-      val nodeName       = createNodeAddress(member)
-      val nodeIdToRemove = NSDbClusterSnapshot(context.system).getNode(nodeName)
+      val nodeAddress  = createNodeAddress(member)
+      val nodeToRemove = NSDbClusterSnapshot(context.system).getNode(createNodeAddress(member))
 
-      unsubscribeNode(nodeIdToRemove.uniqueNodeId)
+      unsubscribeNode(nodeToRemove)
 
-      NSDbClusterSnapshot(context.system).removeNode(nodeName)
-    case _: MemberEvent => // ignore
+      NSDbClusterSnapshot(context.system).removeNode(nodeAddress)
+    case event: MemberEvent =>
+      log.error(s"received cluster event $event")
+    // ignore
     case DiskOccupationChanged(nodeName, usableSpace, totalSpace) =>
       log.debug(s"received usableSpace $usableSpace and totalSpace $totalSpace for nodeName $nodeName")
       nsdbMetrics.put(

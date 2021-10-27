@@ -21,11 +21,19 @@ import akka.actor.{ActorContext, ActorRef, _}
 import akka.cluster.Cluster
 import akka.cluster.pubsub.DistributedPubSub
 import akka.cluster.pubsub.DistributedPubSubMediator.Publish
+import akka.pattern.ask
 import akka.remote.RemoteScope
+import akka.util.Timeout
 import io.radicalbit.nsdb.actors.PublisherActor
 import io.radicalbit.nsdb.actors.supervision.OneForOneWithRetriesStrategy
 import io.radicalbit.nsdb.cluster.PubSubTopics._
-import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.{UpdateVolatileId, VolatileIdUpdated}
+import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.{GetNode, NodeGot, UpdateVolatileId, VolatileIdUpdated}
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
+  GetNodesBlackListFromCache,
+  GetNodesBlackListFromCacheFailed,
+  GetNodesBlackListFromCacheResponse,
+  NodesBlackListFromCacheGot
+}
 import io.radicalbit.nsdb.cluster.coordinator._
 import io.radicalbit.nsdb.cluster.createNodeAddress
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
@@ -37,7 +45,9 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.util.FileUtils
 
 import java.util.concurrent.{TimeUnit, TimeoutException}
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success}
 
 /**
   * Actor that creates all the node singleton actors (e.g. coordinators)
@@ -46,7 +56,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private val selfMember = Cluster(context.system).selfMember
 
-  private val mediator = DistributedPubSub(context.system).mediator
+  protected val mediator = DistributedPubSub(context.system).mediator
 
   protected val nodeAddress: String = createNodeAddress(selfMember)
 
@@ -57,9 +67,12 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   private val indexBasePath = config.getString(StorageIndexPath)
 
-  private val heartbeatInterval = FiniteDuration(
+  protected val heartbeatInterval = FiniteDuration(
     context.system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
     TimeUnit.SECONDS)
+
+  implicit val defaultTimeout: Timeout =
+    Timeout(config.getDuration(globalTimeout, TimeUnit.SECONDS), TimeUnit.SECONDS)
 
   protected var node: NSDbNode                   = _
   protected var heartBeatDispatcher: Cancellable = _
@@ -95,7 +108,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   def createClusterListener: ActorRef =
     context.actorOf(Props[ClusterListener], name = s"cluster-listener_${createNodeAddress(selfMember)}")
 
-  def updateVolatileId(volatileId: String) = {
+  def updateVolatileId(volatileId: String): Unit = {
     node = NSDbNode(nodeAddress, nodeFsId, volatileId)
 
     import context.dispatcher
@@ -103,7 +116,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
     if (heartBeatDispatcher != null) heartBeatDispatcher.cancel()
 
     heartBeatDispatcher = context.system.scheduler.schedule(heartbeatInterval, heartbeatInterval) {
-      mediator ! Publish(NSDB_LISTENERS_TOPIC, NodeAlive(node))
+      mediator ! Publish(NODE_GUARDIANS_TOPIC, NodeAlive(node))
     }
   }
 
@@ -176,11 +189,27 @@ class NodeActorsGuardian extends Actor with ActorLogging {
     log.info(s"NodeActorGuardian is ready at ${self.path.name}")
 
   def receive: Receive = {
+    case GetNode =>
+      sender() ! NodeGot(Option(node))
     case UpdateVolatileId(volatileId) =>
       updateVolatileId(volatileId)
       sender() ! VolatileIdUpdated(node)
     case GetNodeChildActors =>
       sender ! NodeChildActorsGot(metadataCoordinator, writeCoordinator, readCoordinator, publisherActor)
+    case NodeAlive(node) =>
+      import context.dispatcher
+      (metadataCoordinator ? GetNodesBlackListFromCache).mapTo[GetNodesBlackListFromCacheResponse].onComplete {
+        case Success(NodesBlackListFromCacheGot(blackList)) =>
+          if (!blackList.contains(node)) {
+            log.info(s"node $node is alive")
+            NSDbClusterSnapshot(context.system).addNode(node)
+          }
+        case Success(GetNodesBlackListFromCacheFailed(errorMessage)) =>
+        //TODO
+        case Failure(exception) =>
+        //TODO
+      }
+
     case GetMetricsDataActors =>
       log.debug(s"gossiping metric data actors from node ${node.uniqueNodeId}")
       mediator ! Publish(COORDINATORS_TOPIC, SubscribeMetricsDataActor(metricsDataActor, node.uniqueNodeId))
@@ -196,4 +225,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 object NodeActorsGuardian {
   case class UpdateVolatileId(volatileId: String) extends NSDbSerializable
   case class VolatileIdUpdated(node: NSDbNode)    extends NSDbSerializable
+
+  case object GetNode                        extends NSDbSerializable
+  case class NodeGot(node: Option[NSDbNode]) extends NSDbSerializable
 }
