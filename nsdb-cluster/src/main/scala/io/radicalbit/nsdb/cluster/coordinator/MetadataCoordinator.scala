@@ -569,6 +569,12 @@ class MetadataCoordinator(clusterListener: ActorRef,
           case LocationsInNodeEvicted(_)     => NodeMetadataRemoved(nodeName)
         }
         .pipeTo(sender())
+    case msg: AddNodeToBlackList =>
+      metadataCache forward msg
+    case GetNodesBlackListFromCache =>
+      metadataCache forward GetNodesBlackListFromCache
+    case msg: RemoveNodeFromBlackList =>
+      metadataCache forward msg
     case ExecuteRestoreMetadata(path: String) =>
       val temporaryDurableStoreActor = context.actorOf(
         LmdbDurableStore.props(ConfigFactory.parseString(s"""
