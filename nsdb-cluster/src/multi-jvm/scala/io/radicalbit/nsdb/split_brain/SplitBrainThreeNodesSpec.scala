@@ -12,7 +12,7 @@ class SplitBrainThreeNodesSpecMultiJvmNode3 extends SplitBrainThreeNodesSpec
 /**
  * Test Class in which split brain is reproduced with a cluster of three nodes
  */
-class SplitBrainThreeNodesSpec() extends MultiNodeBaseSpec(SplitBrainThreeNodeSpecConfig) {
+class SplitBrainThreeNodesSpec() extends SplitBrainMultiNodeBaseSpec(SplitBrainThreeNodeSpecConfig) {
 
   import SplitBrainThreeNodeSpecConfig._
 

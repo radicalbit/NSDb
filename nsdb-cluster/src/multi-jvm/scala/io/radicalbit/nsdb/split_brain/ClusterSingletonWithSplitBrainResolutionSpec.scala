@@ -17,7 +17,7 @@ class ClusterSingletonWithSplitBrainResolutionSpecMultiJvmNode5 extends ClusterS
 /**
  * Split Brain resolved scenario with Cluster Singleton
  */
-abstract class ClusterSingletonWithSplitBrainResolutionSpec extends MultiNodeBaseSpec(ClusterSingletonWithSplitBrainResolutionSpecConfig) {
+abstract class ClusterSingletonWithSplitBrainResolutionSpec extends SplitBrainMultiNodeBaseSpec(ClusterSingletonWithSplitBrainResolutionSpecConfig) {
 
   import ClusterSingletonWithSplitBrainResolutionSpecConfig._
 

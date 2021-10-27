@@ -1,16 +1,17 @@
-package io.radicalbit.nsdb.cluster.actor
+package io.radicalbit.nsdb.cluster
 
 import akka.actor.{Actor, ActorRef, Props}
-import akka.cluster.{Member, MemberStatus}
+import akka.cluster.MemberStatus
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.STMultiNodeSpec
+import io.radicalbit.nsdb.cluster.actor.NodeActorGuardianFixedNamesForTest
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
 import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.common.statement.{AllFields, SelectSQLStatement}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.ExecuteStatement
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
+import io.radicalbit.nsdb.{NSDbMultiNodeFixedNamesActorsSupport, NSDbMultiNodeSpec}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -46,7 +47,7 @@ object SupervisionSpecConfig extends MultiNodeConfig {
 
 }
 
-class NodeActorGuardianForTestWithFailingCoordinator(volatileId : String, probe: ActorRef) extends NodeActorGuardianForTest(volatileId) {
+class NodeActorGuardianForTestWithFailingCoordinator(nodeFsId: String, volatileId : String, probe: ActorRef) extends NodeActorGuardianFixedNamesForTest(Some(nodeFsId), volatileId) {
 
   class FailingReadCoordinator(probe: ActorRef) extends Actor {
 
@@ -73,21 +74,16 @@ class NodeActorGuardianForTestWithFailingCoordinator(volatileId : String, probe:
 }
 
 object NodeActorGuardianForTestWithFailingCoordinator {
-  def props(volatileId: String, probe: ActorRef): Props = Props(new NodeActorGuardianForTestWithFailingCoordinator(volatileId, probe))
+  def props(nodeFsId: String, volatileId: String, probe: ActorRef): Props = Props(new NodeActorGuardianForTestWithFailingCoordinator(nodeFsId, volatileId, probe))
 }
 
-class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiNodeSpec with ImplicitSender {
+class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with NSDbMultiNodeSpec with NSDbMultiNodeFixedNamesActorsSupport with ImplicitSender {
 
   import SupervisionSpecConfig._
 
   def initialParticipants: Int = roles.size
 
-  val selfMember: Member = cluster.selfMember
-  val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-
   val probe = TestProbe()
-
-  private def readCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/read-coordinator_${nodeName}_${nodeName}_$nodeName"
 
   val correctStatement = ExecuteStatement(SelectSQLStatement(
     db = "db",
@@ -107,12 +103,10 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
     None
   ))
 
+  override lazy val nodeActorGuardianProp = Props(new NodeActorGuardianForTestWithFailingCoordinator(nodeId, volatileId, probe.ref))
+
   "ClusterListener" must {
     "successfully set up a cluster with a potentially failing node" in {
-
-      runOn(node1, node2, node3) {
-        system.actorOf(Props(new NodeActorGuardianForTestWithFailingCoordinator(nodeName, probe.ref)), name = s"guardian_${nodeName}_$nodeName")
-      }
 
       cluster.join(node(node1).address)
       cluster.join(node(node1).address)
@@ -127,8 +121,6 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
 
 
     "handle errors and properly resume child actor" in {
-      val readCoordinator = system.actorSelection(readCoordinatorPath(nodeName))
-
       readCoordinator ! correctStatement
 
       expectMsgType[SelectStatementExecuted]
@@ -155,19 +147,19 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with STMultiN
     }
 
     "handle errors and terminate child actor when resumes exceeds the limits" in {
-        system.actorSelection(readCoordinatorPath(nodeName)).resolveOne(1 seconds).onComplete {
-          case Success(readCoordinator) =>
-            readCoordinator ! errorStatement
-            readCoordinator ! errorStatement
-            readCoordinator ! errorStatement
+        readCoordinator.resolveOne(1 seconds).onComplete {
+          case Success(readCoordinatorActor) =>
+            readCoordinatorActor ! errorStatement
+            readCoordinatorActor ! errorStatement
+            readCoordinatorActor ! errorStatement
 
             probe.expectMsg("Failure")
             probe.expectMsg("Failure")
             probe.expectMsg("Failure")
 
             val terminationPrrobe = TestProbe()
-            terminationPrrobe.watch(readCoordinator)
-            terminationPrrobe.expectTerminated(readCoordinator)
+            terminationPrrobe.watch(readCoordinatorActor)
+            terminationPrrobe.expectTerminated(readCoordinatorActor)
           case Failure(ex) => fail(ex)
         }
     }

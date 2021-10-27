@@ -6,14 +6,14 @@ import akka.cluster.Member
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.{ImplicitSender, TestProbe}
 import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.NSDbMultiNodeSpec
 import io.radicalbit.nsdb.cluster.actor.ClusterListenerTestActor.{FailureTest, SuccessTest, TestType}
+import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.{UpdateVolatileId, VolatileIdUpdated}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{AddLocations, GetOutdatedLocations, RemoveNodeMetadata}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.{AddLocationsFailed, LocationsAdded, OutdatedLocationsGot, RemoveNodeMetadataFailed}
+import io.radicalbit.nsdb.common.protocol.NSDbNode
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{CommitLogCoordinatorUnSubscribed, MetricsDataActorUnSubscribed, PublisherUnSubscribed}
-import io.radicalbit.nsdb.STMultiNodeSpec
-import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.{UpdateVolatileId, VolatileIdUpdated}
-import io.radicalbit.nsdb.common.protocol.NSDbNode
 
 import scala.concurrent.duration._
 
@@ -51,7 +51,7 @@ class WriteCoordinatorForTest extends Actor with ActorLogging {
 
 class NodeActorsGuardianForTest(val resultActor: ActorRef, val testType: TestType) extends Actor with ActorLogging {
 
-  context.actorOf(Props(new ClusterListenerWithMockedChildren(resultActor, testType)))
+  context.actorOf(Props(new ClusterListenerWithMockedChildren("nodeFsId", resultActor, testType)))
 
   private lazy val metaDataCoordinator = context.actorOf(Props(new MetaDataCoordinatorForTest))
   private lazy val writeCoordinator    = context.actorOf(Props(new WriteCoordinatorForTest))
@@ -65,7 +65,7 @@ class NodeActorsGuardianForTest(val resultActor: ActorRef, val testType: TestTyp
   }
 }
 
-class ClusterListenerWithMockedChildren(override val resultActor: ActorRef, override val testType: TestType) extends ClusterListenerTestActor {
+class ClusterListenerWithMockedChildren(nodeFsId: String, override val resultActor: ActorRef, override val testType: TestType) extends ClusterListenerTestActor(nodeFsId) {
   override def onSuccessBehaviour(readCoordinator: ActorRef,
                                   writeCoordinator: ActorRef,
                                   metadataCoordinator: ActorRef,
@@ -82,22 +82,11 @@ object ClusterListenerSpecConfig extends MultiNodeConfig {
   val node1 = role("node-1")
   val node2 = role("node-2")
 
-  commonConfig(ConfigFactory.parseString("""
-                                           |akka.loglevel = ERROR
-                                           |akka.actor.provider = "cluster"
-                                           |nsdb {
-                                           | retry-policy {
-                                           |    delay = 1 second
-                                           |    n-retries = 2
-                                           |  }
-                                           |  heartbeat.interval = 10 seconds
-                                           |  global.timeout = 30 seconds
-                                           |}
-                                           |""".stripMargin))
+  commonConfig(ConfigFactory.parseResources("application.conf"))
 
 }
 
-class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with STMultiNodeSpec with ImplicitSender {
+class ClusterListenerSpec extends MultiNodeSpec(ClusterListenerSpecConfig) with NSDbMultiNodeSpec with ImplicitSender {
 
   import ClusterListenerSpecConfig._
 

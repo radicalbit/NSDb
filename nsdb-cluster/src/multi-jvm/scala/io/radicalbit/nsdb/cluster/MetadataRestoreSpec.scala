@@ -1,13 +1,11 @@
 package io.radicalbit.nsdb.cluster
 
-import akka.actor.{ActorRef, ActorSelection, Props}
-import akka.cluster.{Member, MemberStatus}
+import akka.actor.ActorSelection
+import akka.cluster.MemberStatus
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.ConfigFactory
-import io.radicalbit.nsdb.STMultiNodeSpec
-import io.radicalbit.nsdb.cluster.actor.MetadataSpec.{node1, node2}
-import io.radicalbit.nsdb.cluster.actor.{DatabaseActorsGuardian, NodeActorGuardianForTest}
+import io.radicalbit.nsdb.cluster.MetadataSpec.{node1, node2}
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.ExecuteRestoreMetadata
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.MetadataRestored
 import io.radicalbit.nsdb.common.model.MetricInfo
@@ -16,6 +14,7 @@ import io.radicalbit.nsdb.index.{BIGINT, DECIMAL, NumericType}
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
+import io.radicalbit.nsdb.{NSDbMultiNodeFixedNamesActorsSupport, NSDbMultiNodeSpec}
 
 object MetadataRestoreSpec extends MultiNodeConfig {
   val node1 = role("node-1")
@@ -33,17 +32,8 @@ class MetadataRestoreSpecMultiJvmNode1 extends MetadataRestoreSpec {}
 
 class MetadataRestoreSpecMultiJvmNode2 extends MetadataRestoreSpec {}
 
-class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMultiNodeSpec with ImplicitSender {
+class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with NSDbMultiNodeSpec with NSDbMultiNodeFixedNamesActorsSupport with ImplicitSender {
   override def initialParticipants: Int = roles.size
-
-  private def metadataCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/metadata-coordinator_${nodeName}_${nodeName}_$nodeName"
-  private def schemaCoordinatorPath(nodeName: String) = s"user/guardian_${nodeName}_$nodeName/schema-coordinator_${nodeName}_${nodeName}_$nodeName"
-
-  system.actorOf(Props[DatabaseActorsGuardian], "guardian")
-
-  val selfMember: Member = cluster.selfMember
-  val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-  val nodeActorGuardian: ActorRef = system.actorOf(NodeActorGuardianForTest.props(nodeName), name = s"guardian_${nodeName}_$nodeName")
 
   "Metadata system" must {
 
@@ -61,11 +51,6 @@ class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMult
     "restore values from a metadata dump" in {
 
       runOn(node1) {
-        val selfMember = cluster.selfMember
-        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-
-        val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
-
         val path = getClass.getResource("/dump").getPath
 
         metadataCoordinator ! ExecuteRestoreMetadata(path)
@@ -176,12 +161,6 @@ class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMult
       }
 
       runOn(node1) {
-        val selfMember = cluster.selfMember
-        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-
-        val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
-        val schemaCoordinator   = system.actorSelection(schemaCoordinatorPath(nodeName))
-
         checkCoordinates(metadataCoordinator)
         checkMetricInfoes(metadataCoordinator)
         checkSchemas(schemaCoordinator)
@@ -189,12 +168,6 @@ class MetadataRestoreSpec extends MultiNodeSpec(MetadataRestoreSpec) with STMult
       }
 
       runOn(node2) {
-        val selfMember = cluster.selfMember
-        val nodeName   = s"${selfMember.address.host.getOrElse("noHost")}_${selfMember.address.port.getOrElse(2552)}"
-
-        val metadataCoordinator = system.actorSelection(metadataCoordinatorPath(nodeName))
-        val schemaCoordinator   = system.actorSelection(schemaCoordinatorPath(nodeName))
-
         checkCoordinates(metadataCoordinator)
         checkMetricInfoes(metadataCoordinator)
         checkSchemas(schemaCoordinator)
