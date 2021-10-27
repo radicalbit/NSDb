@@ -49,7 +49,7 @@ class MockedMetadataCoordinator extends Actor with ActorLogging {
   override def receive: Receive = {
     case GetLiveLocations(db, namespace, metric) =>
       sender() ! LiveLocationsGot(db, namespace, metric, locations.getOrElse((namespace, metric), Seq.empty))
-    case GetWriteLocations(db, namespace, metric, timestamp) =>
+    case GetWriteLocations(db, namespace, metric, timestamp, _) =>
       val locationNode1 = Location(metric, node1, timestamp, timestamp + shardingInterval.toMillis)
       val locationNode2 = Location(metric, node2, timestamp, timestamp + shardingInterval.toMillis)
 

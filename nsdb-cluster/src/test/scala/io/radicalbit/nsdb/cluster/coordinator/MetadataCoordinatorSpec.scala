@@ -60,6 +60,8 @@ class MetadataCoordinatorSpec
   val writeNodesSelection = new CapacityWriteNodesSelectionLogic(
     CapacityWriteNodesSelectionLogic.fromConfigValue(system.settings.config.getString("nsdb.cluster.metrics-selector")))
 
+  lazy val replicationFactor: Int = system.settings.config.getInt("nsdb.cluster.replication-factor")
+
   val probe                = TestProbe()
   val commitLogCoordinator = system.actorOf(Props[FakeCommitLogCoordinator])
   val schemaCache          = system.actorOf(Props[FakeSchemaCache])
@@ -205,7 +207,7 @@ class MetadataCoordinatorSpec
     "retrieve correct default write Location given a timestamp" in {
 
       awaitAssert {
-        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
+        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1, replicationFactor))
         val locationGot = probe.expectMsgType[WriteLocationsGot]
         locationGot.db shouldBe db
         locationGot.namespace shouldBe namespace
@@ -217,7 +219,7 @@ class MetadataCoordinatorSpec
       }
 
       awaitAssert {
-        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60001))
+        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60001, replicationFactor))
         val locationGot_2 = probe.expectMsgType[WriteLocationsGot]
         locationGot_2.db shouldBe db
         locationGot_2.namespace shouldBe namespace
@@ -229,7 +231,7 @@ class MetadataCoordinatorSpec
       }
 
       awaitAssert {
-        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60002))
+        probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 60002, replicationFactor))
         val locationGot_3 = probe.expectMsgType[WriteLocationsGot]
         locationGot_3.db shouldBe db
         locationGot_3.namespace shouldBe namespace
@@ -256,7 +258,7 @@ class MetadataCoordinatorSpec
         probe.expectMsgType[MetricInfoGot]
       }.metricInfo shouldBe Some(metricInfo)
 
-      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1))
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 1, replicationFactor))
       val locationGot = awaitAssert {
         probe.expectMsgType[WriteLocationsGot]
       }
@@ -269,7 +271,7 @@ class MetadataCoordinatorSpec
       locationGot.locations.foreach(_.from shouldBe 0L)
       locationGot.locations.foreach(_.to shouldBe 100L)
 
-      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 101))
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 101, replicationFactor))
       val locationGot_2 = awaitAssert {
         probe.expectMsgType[WriteLocationsGot]
       }
@@ -282,7 +284,7 @@ class MetadataCoordinatorSpec
       locationGot_2.locations.foreach(_.from shouldBe 100L)
       locationGot_2.locations.foreach(_.to shouldBe 200L)
 
-      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 202))
+      probe.send(metadataCoordinator, GetWriteLocations(db, namespace, metric, 202, replicationFactor))
       val locationGot_3 = awaitAssert {
         probe.expectMsgType[WriteLocationsGot]
       }

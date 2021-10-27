@@ -80,9 +80,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
   lazy val defaultShardingInterval: Long =
     config.getDuration("nsdb.sharding.interval").toMillis
 
-  lazy val replicationFactor: Int =
-    config.getInt("nsdb.cluster.replication-factor")
-
   lazy val retentionCheckInterval: FiniteDuration =
     FiniteDuration(config.getDuration("nsdb.retention.check.interval").toNanos, TimeUnit.NANOSECONDS)
 
@@ -472,7 +469,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
         .pipeTo(sender())
     case GetLiveLocations(db, namespace, metric) =>
       getLiveLocation(db, namespace, metric).pipeTo(sender())
-    case GetWriteLocations(db, namespace, metric, timestamp) =>
+    case GetWriteLocations(db, namespace, metric, timestamp, replicationFactor) =>
       val clusterAliveMembers = nsdbClusterSnapshot.nodes
       log.debug(s"cluster alive members $clusterAliveMembers")
       if (clusterAliveMembers.size < replicationFactor)
@@ -649,7 +646,7 @@ object MetadataCoordinator {
 
   object commands {
 
-    case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long)
+    case class GetWriteLocations(db: String, namespace: String, metric: String, timestamp: Long, replicationFactor: Int)
         extends NSDbSerializable
     case class AddLocations(db: String,
                             namespace: String,

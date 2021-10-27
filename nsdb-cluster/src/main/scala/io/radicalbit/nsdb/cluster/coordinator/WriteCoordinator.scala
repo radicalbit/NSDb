@@ -72,6 +72,8 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
 
   lazy val shardingInterval: Duration = context.system.settings.config.getDuration("nsdb.sharding.interval")
 
+  lazy val replicationFactor: Int = context.system.settings.config.getInt("nsdb.cluster.replication-factor")
+
   override lazy val indexStorageStrategy: StorageStrategy =
     StorageStrategy.withValue(context.system.settings.config.getString(NSDbConfig.HighLevel.StorageStrategy))
 
@@ -150,19 +152,21 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
     */
   def getWriteLocations(db: String, namespace: String, metric: String, bit: Bit, ts: Long)(
       op: Seq[Location] => Future[WriteCoordinatorResponse]): Future[WriteCoordinatorResponse] =
-    (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts)).mapTo[GetWriteLocationsResponse].flatMap {
-      case WriteLocationsGot(_, _, _, locations) =>
-        log.debug(s"received locations for metric $metric, $locations")
-        op(locations)
-      case GetWriteLocationsBeyondRetention(_, _, _, _, retention) =>
-        log.warning(
-          s"bit $bit will not be written because its timestamp is beyond retention of $retention. Sending positive response.")
-        Future(InputMapped(db, namespace, metric, bit))
-      case GetWriteLocationsFailed(db, namespace, metric, timestamp, reason) =>
-        val errorMessage = s"no location found for bit $bit:\n $reason"
-        log.error(errorMessage)
-        Future(RecordRejected(db, namespace, metric, bit, Location.empty, List(reason), timestamp))
-    }
+    (metadataCoordinator ? GetWriteLocations(db, namespace, metric, ts, replicationFactor))
+      .mapTo[GetWriteLocationsResponse]
+      .flatMap {
+        case WriteLocationsGot(_, _, _, locations) =>
+          log.debug(s"received locations for metric $metric, $locations")
+          op(locations)
+        case GetWriteLocationsBeyondRetention(_, _, _, _, retention) =>
+          log.warning(
+            s"bit $bit will not be written because its timestamp is beyond retention of $retention. Sending positive response.")
+          Future(InputMapped(db, namespace, metric, bit))
+        case GetWriteLocationsFailed(db, namespace, metric, timestamp, reason) =>
+          val errorMessage = s"no location found for bit $bit:\n $reason"
+          log.error(errorMessage)
+          Future(RecordRejected(db, namespace, metric, bit, Location.empty, List(reason), timestamp))
+      }
 
   /**
     * Enqueues the bit into an internal structure. The real write is performed afterwards.
