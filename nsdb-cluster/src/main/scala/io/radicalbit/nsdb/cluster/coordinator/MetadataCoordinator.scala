@@ -506,7 +506,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                             if (nodeMetrics.nodeMetrics.nonEmpty)
                               writeNodesSelectionLogic
                                 .selectWriteNodes(nodeMetrics.nodeMetrics, replicationFactor)
-                                .map(address => nsdbClusterSnapshot.getNode(address))
+                                .flatMap(address => nsdbClusterSnapshot.getNode(address).toSeq)
                             else {
                               Random.shuffle(clusterAliveMembers.toSeq).take(replicationFactor)
                             }

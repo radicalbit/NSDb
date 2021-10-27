@@ -19,9 +19,10 @@ package io.radicalbit.nsdb.cluster.extension
 import java.util.concurrent.atomic.AtomicReference
 
 /**
-  * Provides utilities for managing a thread-safe buffer leveraging [[AtomicReference]] capabilities.
+  * Provides utilities for managing a thread-safe Map leveraging [[AtomicReference]] capabilities.
   *
-  * @tparam T Buffer element type.
+  * @tparam K Map key type.
+  * @tparam T Map value type.
   */
 trait SynchronizedMap[K, T] {
 
@@ -29,7 +30,8 @@ trait SynchronizedMap[K, T] {
 
   /**
     * Add an element to the buffer.
-    * @param element the element to accumulate.
+    * @param key the key to accumulate.
+    * @param value the value to accumulate.
     */
   def accumulate(key: K, value: T): Unit = {
     update(_ + (key -> value))
@@ -37,7 +39,7 @@ trait SynchronizedMap[K, T] {
 
   /**
     * Removes an element from the buffer.
-    * @param element the element to be removed.
+    * @param key the key to be removed.
     */
   def pop(key: K): Unit = {
     update(_ - key)

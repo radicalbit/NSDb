@@ -409,8 +409,8 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         .map {
           case NodesFromBlacklistRemoved(nodes) if nodes.size == 1 => NodeFromBlacklistRemoved(address)
           case NodesFromBlacklistRemoved(nodes) =>
-            RemoveNodeFromBlackListFailed(address, s"unexpected nodes $nodes removedd")
-          case RemoveNodesFromBlacklistFailed(nodes, reason) => RemoveNodeFromBlackListFailed(address, reason)
+            RemoveNodeFromBlackListFailed(address, s"unexpected nodes $nodes removed")
+          case RemoveNodesFromBlacklistFailed(_, reason) => RemoveNodeFromBlackListFailed(address, reason)
         }
         .recover {
           case t: Throwable =>

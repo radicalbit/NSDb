@@ -29,16 +29,7 @@ import io.radicalbit.nsdb.cluster.PubSubTopics._
 import io.radicalbit.nsdb.cluster._
 import io.radicalbit.nsdb.cluster.actor.NSDbMetricsEvents._
 import io.radicalbit.nsdb.cluster.actor.NodeActorsGuardian.UpdateVolatileId
-import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache.{
-  AddNodeToBlackList,
-  AddNodeToBlackListResponse,
-  GetNodesBlackListFromCache,
-  GetNodesBlackListFromCacheResponse,
-  NodeFromBlacklistRemoved,
-  NodeToBlackListAdded,
-  RemoveNodeFromBlackList,
-  RemoveNodeFromBlacklistResponse
-}
+import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.{
   AddLocations,
   GetOutdatedLocations,
@@ -74,10 +65,10 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   import context.dispatcher
 
-  protected val cluster           = Cluster(context.system)
-  private val clusterMetricSystem = ClusterMetricsExtension(context.system)
-  protected val selfNodeName      = createNodeAddress(cluster.selfMember)
-  protected val nodeFsId          = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
+  protected val cluster: Cluster     = Cluster(context.system)
+  private val clusterMetricSystem    = ClusterMetricsExtension(context.system)
+  protected val selfNodeName: String = createNodeAddress(cluster.selfMember)
+  protected val nodeFsId: String     = FileUtils.getOrCreateNodeFsId(selfNodeName, config.getString(NSDBMetadataPath))
 
   private val mediator = DistributedPubSub(context.system).mediator
 
@@ -181,7 +172,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
   def receive: Receive = {
     case MemberUp(member) if member == cluster.selfMember =>
-      log.error(s"Member with nodeId $nodeFsId and address ${member.address} is Up")
+      log.info(s"Member with nodeId $nodeFsId and address ${member.address} is Up")
 
       val volatileId = RandomStringUtils.randomAlphabetic(VOLATILE_ID_LENGTH)
 
@@ -233,12 +224,16 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
             onFailureBehaviour(member, e)
         }
     case UnreachableMember(member) if member != cluster.selfMember =>
-      val nodeAddress  = createNodeAddress(member)
-      val nodeToRemove = NSDbClusterSnapshot(context.system).getNode(createNodeAddress(member))
+      val nodeAddress = createNodeAddress(member)
+      log.warning(s"Member detected as unreachable: $member")
 
-      log.error(s"Member detected as unreachable: $member mapped as $nodeToRemove")
-
-      blacklistNode(nodeToRemove)
+      NSDbClusterSnapshot(context.system).getNode(createNodeAddress(member)) match {
+        case Some(nodeToRemove) =>
+          log.info(s"member $member is mapped into $nodeToRemove")
+          blacklistNode(nodeToRemove)
+        case None =>
+          log.error("member $member has no mapping")
+      }
 
       NSDbClusterSnapshot(context.system).removeNode(nodeAddress)
 
@@ -249,16 +244,19 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
 
     case MemberRemoved(member, previousStatus) if member != cluster.selfMember =>
       log.warning("{} Member is Removed: {} after {}", selfNodeName, member.address, previousStatus)
+      val nodeAddress = createNodeAddress(member)
 
-      val nodeAddress  = createNodeAddress(member)
-      val nodeToRemove = NSDbClusterSnapshot(context.system).getNode(createNodeAddress(member))
-
-      unsubscribeNode(nodeToRemove)
+      NSDbClusterSnapshot(context.system).getNode(createNodeAddress(member)) match {
+        case Some(nodeToRemove) =>
+          log.info(s"member $member is mapped into $nodeToRemove")
+          unsubscribeNode(nodeToRemove)
+        case None =>
+          log.error("member $member has no mapping")
+      }
 
       NSDbClusterSnapshot(context.system).removeNode(nodeAddress)
     case event: MemberEvent =>
-      log.error(s"received cluster event $event")
-    // ignore
+      log.debug(s"received cluster event $event")
     case DiskOccupationChanged(nodeName, usableSpace, totalSpace) =>
       log.debug(s"received usableSpace $usableSpace and totalSpace $totalSpace for nodeName $nodeName")
       nsdbMetrics.put(

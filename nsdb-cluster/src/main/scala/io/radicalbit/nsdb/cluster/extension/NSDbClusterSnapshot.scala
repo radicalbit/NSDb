@@ -19,8 +19,6 @@ package io.radicalbit.nsdb.cluster.extension
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import io.radicalbit.nsdb.common.protocol.NSDbNode
 
-import java.util.UUID
-
 /**
   * Extension that is inspired by the akka [[akka.cluster.Cluster]] extension with the purpose to store the current snapshot for a NSDb cluster.
   * Besides the (already provided by akka) [[akka.cluster.Member]] information, the unique node identifier is snapshot
@@ -30,8 +28,6 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem)
     extends Extension
     with SynchronizedMap[String, NSDbNode] {
 
-  val instanceId = UUID.randomUUID()
-
   /**
     * Adds a node and associate it to the a unique identifier
     * @param address the actual address of the node.
@@ -39,15 +35,14 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem)
     * @param volatileId the node volatile id
     */
   def addNode(address: String, nodeId: String, volatileId: String): NSDbNode = {
-    system.log.debug(s"adding node with address $address and $nodeId to ${values}")
-//    threadSafeMap.put(address, NSDbNode(address, nodeId, volatileId))
+    system.log.debug(s"adding node with address $address and $nodeId to $values")
     val node = NSDbNode(address, nodeId, volatileId)
     accumulate(address, node)
     node
   }
 
   def addNode(node: NSDbNode): NSDbNode = {
-//    system.log.debug(s"adding node with address ${node.nodeAddress} to $threadSafeMap")
+    system.log.debug(s"adding node with address ${node.nodeAddress} to $values")
     accumulate(node.nodeAddress, node)
     node
   }
@@ -57,26 +52,16 @@ class NSDbClusterSnapshotExtension(system: ExtendedActorSystem)
     * @param address the actual node address.
     */
   def removeNode(address: String): Unit = {
-//    system.log.error(s"removing node with address $address from ${values.map(e => e.nodeFsId)}")
-//    system.log.error(s"removing from instanceId $instanceId")
-//    val r = threadSafeMap.remove(address)
-//    system.log.error(s"after removing address $address: ${threadSafeMap.asScala.map(e => (e._1, e._2.nodeFsId))}")
-//    r
-
+    system.log.error(s"removing node with address $address from $values")
     pop(address)
-    system.log.error(s"removed node with address $address from ${values.map(e => e.nodeFsId)}")
   }
 
   /**
     * Returns the current active nodes
     */
-  def nodes: Iterable[NSDbNode] = {
-//    system.log.error(s"getting from instanceId $instanceId")
-//    threadSafeMap.asScala.values
-    values
-  }
+  def nodes: Iterable[NSDbNode] = values
 
-  def getNode(address: String): NSDbNode = get(address).get //threadSafeMap.get(address)
+  def getNode(address: String): Option[NSDbNode] = get(address)
 
 }
 

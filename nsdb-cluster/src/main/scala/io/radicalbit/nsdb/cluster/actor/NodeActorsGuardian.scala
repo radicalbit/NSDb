@@ -45,7 +45,6 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.util.FileUtils
 
 import java.util.concurrent.{TimeUnit, TimeoutException}
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
@@ -179,7 +178,7 @@ class NodeActorsGuardian extends Actor with ActorLogging {
 
   protected lazy val metricsDataActor: ActorRef = context.actorOf(
     MetricsDataActor
-      .props(indexBasePath, NSDbClusterSnapshot(context.system).getNode(nodeAddress), commitLogCoordinator)
+      .props(indexBasePath, node, commitLogCoordinator)
       .withDeploy(Deploy(scope = RemoteScope(selfMember.address)))
       .withDispatcher("akka.actor.control-aware-dispatcher"),
     s"metrics-data-actor_$actorNameSuffix"
@@ -205,9 +204,11 @@ class NodeActorsGuardian extends Actor with ActorLogging {
             NSDbClusterSnapshot(context.system).addNode(node)
           }
         case Success(GetNodesBlackListFromCacheFailed(errorMessage)) =>
-        //TODO
-        case Failure(exception) =>
-        //TODO
+          log.error(s"unexpected error $errorMessage while retrieving nodes blacklist")
+          sys.exit(1)
+        case Failure(th) =>
+          log.error(th, s"unexpected error while retrieving nodes blacklist")
+          sys.exit(1)
       }
 
     case GetMetricsDataActors =>
