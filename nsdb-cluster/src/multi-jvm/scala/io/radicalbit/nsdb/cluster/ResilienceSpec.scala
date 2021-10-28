@@ -83,11 +83,30 @@ abstract class ResilienceSpec extends MultiNodeSpec(ResilienceSpec) with NSDbMul
         awaitAssert {
           NSDbClusterSnapshot(system).nodes.map(_.nodeFsId).toSet shouldBe Set(node3.name, node4.name, node5.name)
         }
-        awaitAssert{
-          val blackList = (metadataCache() ? GetNodesBlackListFromCache).mapTo[NodesBlackListFromCacheGot].await.blacklist
-          blackList.size shouldBe 2
-          blackList.map(_.nodeFsId) shouldBe Set(node1.name, node2.name)
+      }
+
+      runOn(node2, node1) {
+        awaitAssert {
+          NSDbClusterSnapshot(system).nodes.size shouldBe initialParticipants - 1
         }
+      }
+
+      runOn(node2) {
+        awaitAssert {
+          NSDbClusterSnapshot(system).nodes.map(_.nodeFsId).toSet shouldBe Set(node2.name, node3.name, node4.name, node5.name)
+        }
+      }
+
+      runOn(node1) {
+        awaitAssert {
+          NSDbClusterSnapshot(system).nodes.map(_.nodeFsId).toSet shouldBe Set(node1.name, node3.name, node4.name, node5.name)
+        }
+      }
+
+      awaitAssert{
+        val blackList = (metadataCache() ? GetNodesBlackListFromCache).mapTo[NodesBlackListFromCacheGot].await.blacklist
+        blackList.size shouldBe 2
+        blackList.map(_.nodeFsId) shouldBe Set(node1.name, node2.name)
       }
 
       enterBarrier("1 nodes cluster")
@@ -104,7 +123,7 @@ abstract class ResilienceSpec extends MultiNodeSpec(ResilienceSpec) with NSDbMul
         val writeLocationsGot = awaitAssert {
           expectMsgType[WriteLocationsGot]
         }
-        
+
         writeLocationsGot.locations.size shouldBe 3
         writeLocationsGot.locations.map(_.node.nodeFsId).sorted shouldBe Seq(node3.name, node4.name, node5.name)
       }
@@ -117,7 +136,7 @@ abstract class ResilienceSpec extends MultiNodeSpec(ResilienceSpec) with NSDbMul
 
       enterBarrier("node1-node2-failure-repaired")
 
-      expectNoMessage(10 seconds)
+      expectHeartBeat()
       awaitAssert {
         NSDbClusterSnapshot(system).nodes.size shouldBe initialParticipants
       }

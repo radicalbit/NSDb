@@ -8,12 +8,21 @@ import akka.testkit.ImplicitSender
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest.BeforeAndAfterAll
 
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
+
 /**
   * Hooks up MultiNodeSpec with ScalaTest
   */
 trait NSDbMultiNodeSpec extends MultiNodeSpec with NSDbSpecLike with BeforeAndAfterAll with ImplicitSender{
 
   protected implicit lazy val cluster: Cluster = Cluster(system)
+
+  protected lazy val heartbeatInterval = FiniteDuration(
+    system.settings.config.getDuration("nsdb.heartbeat.interval", TimeUnit.SECONDS),
+    TimeUnit.SECONDS)
+
+  def expectHeartBeat(): Unit = expectNoMessage(heartbeatInterval)
 
   def join(from: RoleName, to: RoleName): Unit = {
     runOn(from) {

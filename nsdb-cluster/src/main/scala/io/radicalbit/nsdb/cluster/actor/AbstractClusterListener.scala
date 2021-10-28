@@ -232,7 +232,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
           log.info(s"member $member is mapped into $nodeToRemove")
           blacklistNode(nodeToRemove)
         case None =>
-          log.error("member $member has no mapping")
+          log.error(s"member $member has no mapping")
       }
 
       NSDbClusterSnapshot(context.system).removeNode(nodeAddress)
@@ -251,7 +251,7 @@ abstract class AbstractClusterListener extends Actor with ActorLogging with Futu
           log.info(s"member $member is mapped into $nodeToRemove")
           unsubscribeNode(nodeToRemove)
         case None =>
-          log.error("member $member has no mapping")
+          log.error(s"member $member has no mapping")
       }
 
       NSDbClusterSnapshot(context.system).removeNode(nodeAddress)

@@ -103,7 +103,7 @@ class SupervisionSpec extends MultiNodeSpec(SupervisionSpecConfig) with NSDbMult
     None
   ))
 
-  override lazy val nodeActorGuardianProp = Props(new NodeActorGuardianForTestWithFailingCoordinator(nodeId, volatileId, probe.ref))
+  override lazy val nodeActorGuardianProp = Props(new NodeActorGuardianForTestWithFailingCoordinator(selfNodeFsId, volatileId, probe.ref))
 
   "ClusterListener" must {
     "successfully set up a cluster with a potentially failing node" in {
