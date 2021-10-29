@@ -71,7 +71,7 @@ class LocalMetadataCoordinator(cache: ActorRef) extends Actor {
         .mapTo[NamespaceFromCacheDropped]
         .map(_ => NamespaceDeleted(db, namespace))
         .pipeTo(sender())
-    case GetWriteLocations(db, namespace, metric, timestamp) =>
+    case GetWriteLocations(db, namespace, metric, timestamp, _) =>
       val start = getShardStartIstant(timestamp, defaultShardingInterval)
       val end   = getShardEndIstant(start, defaultShardingInterval)
 

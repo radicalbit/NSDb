@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <variable name="LOG_LEVEL" value="${LOG_LEVEL:-INFO}" />
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.ning.http.client" level="WARN"/>
+    <logger name="io.grpc.netty" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+    <logger name="akka" level="ERROR" />
+    <logger name="com.typesafe" level="ERROR"/>
+
+    <root level="${LOG_LEVEL}">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

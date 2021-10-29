@@ -64,7 +64,8 @@ object ReplicatedMetadataCache {
   private final case class NamespaceRequest(db: String, replyTo: ActorRef)
   private final case class MetricRequest(db: String, namespace: String, replyTo: ActorRef)
   private final case class NodesBlackListRequest(replyTo: ActorRef)
-  private final case object NodesBlackListInternalRequest
+  private final case class NodesBlackListWithTtlRequest(replyTo: ActorRef)
+  private final case object NodesBlackListTtlCheckRequest
 
   final case class PutCoordinateInCache(db: String, namespace: String, metric: String) extends NSDbSerializable
   final case class PutLocationInCache(db: String,
@@ -157,14 +158,34 @@ object ReplicatedMetadataCache {
   final case class NodeToBlackListAdded(node: NSDbNode)                     extends AddNodeToBlackListResponse
   final case class AddNodeToBlackListFailed(node: NSDbNode, reason: String) extends AddNodeToBlackListResponse
 
-  final case class NSDbNodeWithTtl(node: NSDbNode, createdAt: Long)     extends NSDbSerializable
+  final case class NSDbNodeWithTtl(node: NSDbNode, createdAt: Long) extends NSDbSerializable
+
   final case object GetNodesBlackListFromCache                          extends NSDbSerializable
   sealed trait GetNodesBlackListFromCacheResponse                       extends NSDbSerializable
   final case class NodesBlackListFromCacheGot(blacklist: Set[NSDbNode]) extends GetNodesBlackListFromCacheResponse
   final case class GetNodesBlackListFromCacheFailed(reason: String)     extends GetNodesBlackListFromCacheResponse
 
+  final case object GetNodesBlackListWithTtlFromCache    extends NSDbSerializable
+  sealed trait GetNodesBlackListWithTtlFromCacheResponse extends NSDbSerializable
+  final case class NodesBlackListWithTtlFromCacheGot(blacklist: Set[NSDbNodeWithTtl])
+      extends GetNodesBlackListWithTtlFromCacheResponse
+  final case class GetNodesBlackListWithTtlFromCacheFailed(reason: String)
+      extends GetNodesBlackListWithTtlFromCacheResponse
+
   final case object CheckBlackListTtl                                               extends NSDbSerializable
   final case class RemoveNodesFromBlacklist(nodesToBeRemoved: Set[NSDbNodeWithTtl]) extends NSDbSerializable
+
+  sealed trait RemoveNodesFromBlacklistResponse extends NSDbSerializable
+  final case class NodesFromBlacklistRemoved(nodesToBeRemoved: Set[NSDbNodeWithTtl])
+      extends RemoveNodesFromBlacklistResponse
+  final case class RemoveNodesFromBlacklistFailed(nodesToBeRemoved: Set[NSDbNodeWithTtl], reason: String)
+      extends RemoveNodesFromBlacklistResponse
+
+  final case class RemoveNodeFromBlackList(address: String)  extends NSDbSerializable
+  sealed trait RemoveNodeFromBlacklistResponse               extends NSDbSerializable
+  final case class NodeFromBlacklistRemoved(address: String) extends RemoveNodeFromBlacklistResponse
+  final case class RemoveNodeFromBlackListFailed(address: String, reason: String)
+      extends RemoveNodeFromBlacklistResponse
 }
 
 /**
@@ -365,16 +386,37 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
         }
         .pipeTo(sender)
     case CheckBlackListTtl =>
-      replicator ! Get(nodesBlacklistKey, ReadLocal, Some(NodesBlackListInternalRequest))
+      replicator ! Get(nodesBlacklistKey, ReadLocal, Some(NodesBlackListTtlCheckRequest))
     case RemoveNodesFromBlacklist(toBeRemoved) =>
       Future
-        .sequence(
-          toBeRemoved.map(e =>
-            (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(_ remove e))
-              .mapTo[UpdateSuccess[_]]))
+        .sequence(toBeRemoved.map(e =>
+          (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(_ remove e))
+            .mapTo[UpdateSuccess[_]]))
+        .map(_ => NodesFromBlacklistRemoved(toBeRemoved))
         .recover {
-          case t => log.error(t, "Unexpected error while removing a node from blacklist")
+          case t =>
+            log.error(t, "Unexpected error while removing a node from blacklist")
+            RemoveNodesFromBlacklistFailed(toBeRemoved,
+                                           s"Unexpected error while removing a node from blacklist ${t.getMessage}")
         }
+        .pipeTo(sender())
+    case RemoveNodeFromBlackList(address) =>
+      (for {
+        blackList <- (self ? GetNodesBlackListWithTtlFromCache).mapTo[NodesBlackListWithTtlFromCacheGot]
+        removeResult <- (self ? RemoveNodesFromBlacklist(blackList.blacklist.filter(_.node.nodeAddress == address)))
+          .mapTo[RemoveNodesFromBlacklistResponse]
+      } yield removeResult)
+        .map {
+          case NodesFromBlacklistRemoved(nodes) if nodes.size == 1 => NodeFromBlacklistRemoved(address)
+          case NodesFromBlacklistRemoved(nodes) =>
+            RemoveNodeFromBlackListFailed(address, s"unexpected nodes $nodes removed")
+          case RemoveNodesFromBlacklistFailed(_, reason) => RemoveNodeFromBlackListFailed(address, reason)
+        }
+        .recover {
+          case t: Throwable =>
+            RemoveNodeFromBlackListFailed(address, t.getMessage)
+        }
+        .pipeTo(sender())
     case AddNodeToBlackList(node) =>
       (replicator ? Update(nodesBlacklistKey, ORSet(), metadataWriteConsistency)(
         _ :+ NSDbNodeWithTtl(node, System.currentTimeMillis)))
@@ -416,6 +458,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case GetNodesBlackListFromCache =>
       log.debug("searching for nodes blacklist")
       replicator ! Get(nodesBlacklistKey, ReadLocal, Some(NodesBlackListRequest(sender())))
+    case GetNodesBlackListWithTtlFromCache =>
+      log.debug("searching for nodes blacklist")
+      replicator ! Get(nodesBlacklistKey, ReadLocal, Some(NodesBlackListWithTtlRequest(sender())))
     case DropMetricFromCache(db, namespace, metric) =>
       (for {
         locations <- (self ? GetLocationsFromCache(db, namespace, metric)).mapTo[LocationsCached].map(_.locations)
@@ -545,7 +590,10 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
     case g @ GetSuccess(_, Some(NodesBlackListRequest(replyTo))) =>
       val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
       replyTo ! NodesBlackListFromCacheGot(elements.map(_.node))
-    case g @ GetSuccess(_, Some(NodesBlackListInternalRequest)) =>
+    case g @ GetSuccess(_, Some(NodesBlackListWithTtlRequest(replyTo))) =>
+      val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
+      replyTo ! NodesBlackListWithTtlFromCacheGot(elements)
+    case g @ GetSuccess(_, Some(NodesBlackListTtlCheckRequest)) =>
       val elements = g.dataValue.asInstanceOf[ORSet[NSDbNodeWithTtl]].elements
       self ! RemoveNodesFromBlacklist(elements.filter(e => System.currentTimeMillis > e.createdAt + blackListTtl))
     case NotFound(_, Some(MetricLocationsRequest(key, replyTo))) =>
@@ -556,7 +604,9 @@ class ReplicatedMetadataCache extends Actor with ActorLogging with WriteConfig {
       replyTo ! OutdatedLocationsFromCacheGot(Set.empty)
     case NotFound(_, Some(NodesBlackListRequest(replyTo))) =>
       replyTo ! NodesBlackListFromCacheGot(Set.empty)
-    case NotFound(_, Some(NodesBlackListInternalRequest)) => //do nothing
+    case NotFound(_, Some(NodesBlackListWithTtlRequest(replyTo))) =>
+      replyTo ! NodesBlackListWithTtlFromCacheGot(Set.empty)
+    case NotFound(_, Some(NodesBlackListTtlCheckRequest)) => //do nothing
     case NotFound(_, Some(MetricInfoRequest(key, replyTo))) =>
       replyTo ! MetricInfoCached(key.db, key.namespace, key.metric, None)
     case NotFound(_, Some(AllMetricInfoWithRetentionRequest(replyTo))) =>

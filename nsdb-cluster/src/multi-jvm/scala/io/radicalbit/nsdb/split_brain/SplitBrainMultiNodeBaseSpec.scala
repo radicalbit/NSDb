@@ -6,7 +6,7 @@ import akka.remote.testconductor.RoleName
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.remote.transport.ThrottlerTransportAdapter.Direction
 import akka.testkit.ImplicitSender
-import io.radicalbit.nsdb.STMultiNodeSpec
+import io.radicalbit.nsdb.NSDbMultiNodeSpec
 
 import scala.concurrent.duration.Duration
 
@@ -15,9 +15,9 @@ import scala.concurrent.duration.Duration
   * The functions names have been inspired by the lithium plugin multi jvm tests
   * @param config multi node configuration
   */
-abstract class MultiNodeBaseSpec(config: MultiNodeConfig)
+abstract class SplitBrainMultiNodeBaseSpec(config: MultiNodeConfig)
     extends MultiNodeSpec(config)
-    with STMultiNodeSpec
+    with NSDbMultiNodeSpec
     with ImplicitSender {
 
   def initialParticipants: Int = roles.size
@@ -43,6 +43,7 @@ abstract class MultiNodeBaseSpec(config: MultiNodeConfig)
 
   protected def switchOffConnection(from: RoleName, to: RoleName) =
     testConductor.blackhole(from, to, Direction.Both).await
+
 
   protected def awaitSurvivorsNodes(roleNames: RoleName*): Unit =
     awaitCond(roleNames.forall(role => cluster.state.members.exists(_.address === addressOf(role))))

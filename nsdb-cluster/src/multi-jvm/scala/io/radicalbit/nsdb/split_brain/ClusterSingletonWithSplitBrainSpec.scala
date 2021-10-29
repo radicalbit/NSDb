@@ -20,7 +20,7 @@ class ClusterSingletonWithSplitBrainSpecMultiJvmNode5 extends ClusterSingletonWi
  * Split Brain scenario with Singleton Cluster
  */
 abstract class ClusterSingletonWithSplitBrainSpec
-  extends MultiNodeBaseSpec(ClusterSingletonWithSplitBrainSpecConfig) {
+  extends SplitBrainMultiNodeBaseSpec(ClusterSingletonWithSplitBrainSpecConfig) {
 
   import ClusterSingletonWithSplitBrainSpecConfig._
 

@@ -13,8 +13,8 @@ import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands.{EvictSchema, GetSchemaFromCache, PutSchemaInCache}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SchemaCached
-import io.radicalbit.nsdb.STMultiNodeSpec
-import io.radicalbit.nsdb.cluster.actor.MetadataSpec.commonConfig
+import io.radicalbit.nsdb.NSDbMultiNodeSpec
+import io.radicalbit.nsdb.cluster.MetadataSpec.commonConfig
 import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
@@ -33,7 +33,7 @@ class ReplicatedSchemaCacheSpecMultiJvmNode2 extends ReplicatedSchemaCacheSpec
 
 class ReplicatedSchemaCacheSpec
     extends MultiNodeSpec(ReplicatedSchemaCacheSpec)
-    with STMultiNodeSpec
+    with NSDbMultiNodeSpec
     with ImplicitSender {
 
   import ReplicatedMetadataCacheSpec._

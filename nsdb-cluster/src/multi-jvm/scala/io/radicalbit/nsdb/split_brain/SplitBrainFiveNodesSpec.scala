@@ -14,7 +14,7 @@ class SplitBrainFiveNodesSpecMultiJvmNode5 extends SplitBrainFiveNodesSpec
 /**
  * Test Class in which split brain is reproduced with a cluster of five nodes
  */
-class SplitBrainFiveNodesSpec extends MultiNodeBaseSpec(SplitBrainFiveNodesSpecConfig) {
+class SplitBrainFiveNodesSpec extends SplitBrainMultiNodeBaseSpec(SplitBrainFiveNodesSpecConfig) {
 
   import SplitBrainFiveNodesSpecConfig._
 

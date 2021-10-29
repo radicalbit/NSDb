@@ -6,7 +6,7 @@ import akka.cluster.ddata.Replicator.{GetReplicaCount, ReplicaCount}
 import akka.remote.testkit.{MultiNodeConfig, MultiNodeSpec}
 import akka.testkit.ImplicitSender
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
-import io.radicalbit.nsdb.STMultiNodeSpec
+import io.radicalbit.nsdb.NSDbMultiNodeSpec
 import io.radicalbit.nsdb.cluster.actor.ReplicatedMetadataCache._
 import io.radicalbit.nsdb.common.model.MetricInfo
 import io.radicalbit.nsdb.common.protocol.NSDbNode
@@ -29,7 +29,7 @@ class ReplicatedMetadataCacheSpecMultiJvmNode2 extends ReplicatedMetadataCacheSp
 
 class ReplicatedMetadataCacheSpec
     extends MultiNodeSpec(ReplicatedMetadataCacheSpec)
-    with STMultiNodeSpec
+    with NSDbMultiNodeSpec
     with ImplicitSender {
 
   import ReplicatedMetadataCacheSpec._
