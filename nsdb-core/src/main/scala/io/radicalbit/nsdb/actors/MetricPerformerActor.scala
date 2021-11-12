@@ -16,22 +16,20 @@
 
 package io.radicalbit.nsdb.actors
 
-import java.util.concurrent.TimeUnit
-
-import akka.actor.{ActorRef, Props}
-import akka.pattern.ask
+import akka.actor.Props
 import akka.util.Timeout
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
-import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformRetry, PerformShardWrites, PersistedBit, PersistedBits}
+import io.radicalbit.nsdb.actors.MetricPerformerActor.{PerformRetry, PerformShardWrites}
 import io.radicalbit.nsdb.common.configuration.NSDbConfig
-import io.radicalbit.nsdb.common.protocol.{Bit, NSDbSerializable}
+import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.index.{AllFacetIndexes, StorageStrategy}
-import io.radicalbit.nsdb.model.{Location, TimeContext}
+import io.radicalbit.nsdb.model.TimeContext
 import io.radicalbit.nsdb.statement.StatementParser
 import io.radicalbit.nsdb.util.ActorPathLogging
 import org.apache.lucene.index.IndexWriter
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success, Try}
@@ -43,10 +41,7 @@ import scala.util.{Failure, Success, Try}
   * @param db shards db.
   * @param namespace shards namespace.
   */
-class MetricPerformerActor(val basePath: String,
-                           val db: String,
-                           val namespace: String,
-                           val localCommitLogCoordinator: ActorRef)
+class MetricPerformerActor(val basePath: String, val db: String, val namespace: String)
     extends ActorPathLogging
     with MetricsActor {
 
@@ -66,8 +61,6 @@ class MetricPerformerActor(val basePath: String,
     case PerformShardWrites(opBufferMap) =>
       val groupedByKey = opBufferMap.values.groupBy(_.location)
 
-      val performedBitOperations: ListBuffer[PersistedBit] = ListBuffer.empty
-
       groupedByKey.foreach {
         case (loc, ops) =>
           val index               = getOrCreateIndex(loc)
@@ -85,7 +78,6 @@ class MetricPerformerActor(val basePath: String,
                   facetIndexes.write(bit)(facetsIndexWriter, facetsTaxoWriter) match {
                     case Success(_) =>
                       val timestamp = System.currentTimeMillis()
-                      performedBitOperations += PersistedBit(db, namespace, loc.metric, timestamp, bit, loc)
                     case Failure(t) =>
                       toRetryOperations += ((op, 0))
                       log.error(t, "error during write on facet indexes")
@@ -101,7 +93,6 @@ class MetricPerformerActor(val basePath: String,
                   Try(facetIndexes.delete(bit)(facetsIndexWriter).map(_.get)) match {
                     case Success(_) =>
                       val timestamp = System.currentTimeMillis()
-                      performedBitOperations += PersistedBit(db, namespace, loc.metric, timestamp, bit, loc)
                     case Failure(t) =>
                       toRetryOperations += ((op, 0))
                       log.error(t, "error during write on facet indexes")
@@ -135,11 +126,7 @@ class MetricPerformerActor(val basePath: String,
           facetsIndexWriter.close()
       }
 
-      val persistedBits = performedBitOperations.toSeq
       context.parent ! Refresh(opBufferMap.keys.toSeq, groupedByKey.keys.toSeq)
-      (localCommitLogCoordinator ? PersistedBits(persistedBits)).recover {
-        case _ => localCommitLogCoordinator ! PersistedBits(persistedBits)
-      }
 
       if (toRetryOperations.nonEmpty)
         self ! PerformRetry
@@ -230,15 +217,6 @@ object MetricPerformerActor {
 
   case class PerformShardWrites(opBufferMap: Map[String, ShardOperation]) extends NSDbSerializable
 
-  /**
-    * This message is sent back to localWriteCoordinator in order to write on commit log related entries
-    * @param persistedBits [[Seq]] of [[PersistedBit]]
-    */
-  case class PersistedBits(persistedBits: Seq[PersistedBit]) extends NSDbSerializable
-  case class PersistedBit(db: String, namespace: String, metric: String, timestamp: Long, bit: Bit, location: Location)
-      extends NSDbSerializable
-  case object PersistedBitsAck extends NSDbSerializable
-
-  def props(basePath: String, db: String, namespace: String, localCommitLogCoordinator: ActorRef): Props =
-    Props(new MetricPerformerActor(basePath, db, namespace, localCommitLogCoordinator))
+  def props(basePath: String, db: String, namespace: String): Props =
+    Props(new MetricPerformerActor(basePath, db, namespace))
 }

@@ -62,18 +62,15 @@ class MetricPerformerActorSpec
   val probe      = TestProbe()
   val probeActor = probe.ref
 
-  val basePath                  = s"target/MetricPerformerActorSpec/${UUID.randomUUID()}"
-  val db                        = "db"
-  val namespace                 = "namespace"
-  val localCommitLogCoordinator = TestProbe()
+  val basePath  = s"target/MetricPerformerActorSpec/${UUID.randomUUID()}"
+  val db        = "db"
+  val namespace = "namespace"
 
-  val testSupervisor                 = TestActorRef[TestSupervisorActor](Props(new TestSupervisorActor(probeActor)))
-  val localCommitLogCoordinatorActor = localCommitLogCoordinator.ref
+  val testSupervisor = TestActorRef[TestSupervisorActor](Props(new TestSupervisorActor(probeActor)))
   val indexerPerformerActor =
-    TestActorRef[MetricPerformerActor](
-      MetricPerformerActor.props(basePath, db, namespace, localCommitLogCoordinatorActor),
-      testSupervisor,
-      "indexerPerformerActor")
+    TestActorRef[MetricPerformerActor](MetricPerformerActor.props(basePath, db, namespace),
+                                       testSupervisor,
+                                       "indexerPerformerActor")
 
   indexerPerformerActor.underlyingActor.supervisorStrategy
 
@@ -122,11 +119,6 @@ class MetricPerformerActorSpec
         probe.expectMsgType[Refresh]
       }
 
-      awaitAssert {
-        val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
-        msg.persistedBits.size shouldBe 1
-      }
-
     }
 
     "retry and fail in case of write error" in {
@@ -137,11 +129,6 @@ class MetricPerformerActorSpec
       probe.send(indexerPerformerActor, PerformShardWrites(writeOperation))
       awaitAssert {
         probe.expectMsgType[Refresh]
-      }
-
-      awaitAssert {
-        val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
-        msg.persistedBits.size shouldBe 0
       }
 
       indexerPerformerActor.underlyingActor.toRetryOperations.size shouldBe 1
@@ -157,11 +144,6 @@ class MetricPerformerActorSpec
         probe.expectMsgType[Refresh]
       }
 
-      awaitAssert {
-        val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
-        msg.persistedBits.size shouldBe 0
-      }
-
       indexerPerformerActor.underlyingActor.toRetryOperations.size shouldBe 1
       testSupervisor.underlyingActor.exceptionsCaught.size shouldBe 1
     }
@@ -173,11 +155,6 @@ class MetricPerformerActorSpec
       probe.send(indexerPerformerActor, PerformShardWrites(writeOperation))
       awaitAssert {
         probe.expectMsgType[Refresh]
-      }
-
-      awaitAssert {
-        val msg = localCommitLogCoordinator.expectMsgType[MetricPerformerActor.PersistedBits]
-        msg.persistedBits.size shouldBe 1
       }
 
       indexerPerformerActor.underlyingActor.toRetryOperations.size shouldBe 0

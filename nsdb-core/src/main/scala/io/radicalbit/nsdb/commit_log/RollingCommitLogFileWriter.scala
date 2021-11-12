@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{PoisonPill, Props, ReceiveTimeout}
 import com.typesafe.config.Config
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
-import io.radicalbit.nsdb.commit_log.RollingCommitLogFileChecker.CheckFiles
 import io.radicalbit.nsdb.common.configuration.NSDbConfig.HighLevel._
 import io.radicalbit.nsdb.common.protocol.NSDbSerializable
 
@@ -98,7 +97,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
   override def preStart(): Unit = {
     log.info("Initializing the commit log serializer {}...", serializerClass)
-    val checker = context.actorOf(RollingCommitLogFileChecker.props(db, namespace, metric), childName)
 
     new File(directory).mkdirs()
 
@@ -116,8 +114,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
     file = new File(s"$directory/$newFileName")
     fileOS = newOutputStream(file)
-
-    checker ! CheckFiles(file)
 
     log.info("Commit log serializer {} initialized successfully.", serializerClass)
   }
@@ -152,11 +148,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
       val f = newFile(current)
 
-      context.child(childName).foreach {
-        log.debug(s"Sending commit log check for actual file : ${f.getName}")
-        _ ! CheckFiles(f)
-      }
-
       Some(f, newOutputStream(f))
     } else
       None
@@ -172,18 +163,10 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
 
   override def receive: Receive = super.receive orElse {
     case ReceiveTimeout =>
-      context.child(childName).foreach {
-        log.debug(s"Sending commit log check for actual file before passivating : ${file.getName}")
-        _ ! CheckFiles(file)
-      }
       self ! PoisonPill
     case ForceRolling =>
       val f = newFile(file)
       file = f
-      context.child(childName).foreach {
-        log.debug(s"Sending commit log check for actual file : ${f.getName}")
-        _ ! CheckFiles(f)
-      }
       fileOS.close()
       fileOS = newOutputStream(f)
   }

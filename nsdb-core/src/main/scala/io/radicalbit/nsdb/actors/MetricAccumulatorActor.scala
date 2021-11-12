@@ -109,8 +109,8 @@ class MetricAccumulatorActor(val basePath: String,
     * Any existing shard is retrieved, the [[MetricPerformerActor]] is initialized and actual writes are scheduled.
     */
   override def preStart: Unit = {
-    performerActor = context.actorOf(MetricPerformerActor.props(basePath, db, namespace, localCommitLogCoordinator),
-                                     s"shard-performer-service-$db-$namespace")
+    performerActor =
+      context.actorOf(MetricPerformerActor.props(basePath, db, namespace), s"shard-performer-service-$db-$namespace")
 
     context.system.scheduler.schedule(0.seconds, interval) {
       if (opBufferMap.nonEmpty && performingOps.isEmpty) {
