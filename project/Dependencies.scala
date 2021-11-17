@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.6.15"
+    lazy val version   = "2.6.17"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor                  = namespace %% "akka-actor"                  % version
@@ -85,15 +85,15 @@ object Dependencies {
   }
 
   object scala_logging {
-    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
   }
 
   object logback {
-    val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
+    val logback = "ch.qos.logback" % "logback-classic" % "1.2.7"
   }
 
   object akka_http {
-    lazy val version   = "10.2.5"
+    lazy val version   = "10.2.6"
     lazy val namespace = "com.typesafe.akka"
     lazy val default         = namespace                      %% "akka-http"            % version
     lazy val testkit         = namespace                      %% "akka-http-testkit"    % version % Test
@@ -127,7 +127,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.9.0"
+    lazy val version     = "8.11.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version

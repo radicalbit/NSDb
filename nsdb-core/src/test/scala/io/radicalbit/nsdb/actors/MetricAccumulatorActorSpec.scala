@@ -16,20 +16,20 @@
 
 package io.radicalbit.nsdb.actors
 
-import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
-import akka.actor.{ActorSystem, Props}
+import akka.actor.Props
 import akka.pattern.ask
 import akka.routing.RoundRobinPool
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.testkit.{TestActorRef, TestProbe}
 import akka.util.Timeout
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.{Location, Schema}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
-import io.radicalbit.nsdb.test.{NSDbFlatSpecLike, NSDbTestKitFlatSpecLike}
+import io.radicalbit.nsdb.test.NSDbTestKitFlatSpecLike
 import org.scalatest.BeforeAndAfter
 
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
 import scala.concurrent.duration._
 

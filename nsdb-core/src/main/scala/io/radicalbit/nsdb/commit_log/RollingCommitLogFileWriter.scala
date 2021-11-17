@@ -81,8 +81,6 @@ class RollingCommitLogFileWriter(db: String, namespace: String, metric: String) 
   private val directory       = config.getString(CommitLogDirectory)
   private val maxSize         = config.getLong(CommitLogMaxSize)
 
-  private val childName = s"commit-log-checker-$db-$namespace-$metric"
-
   private var file: File               = _
   private var fileOS: FileOutputStream = _
 

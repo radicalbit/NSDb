@@ -148,13 +148,13 @@ class WriteCoordinatorErrorsSpec
         failureCommitLogProbe.expectMsgType[WriteToCommitLog]
       }
 
-      awaitAssert {
-        failureCommitLogProbe.expectMsgType[WriteToCommitLog]
-      }
+//      awaitAssert {
+//        failureCommitLogProbe.expectMsgType[WriteToCommitLog]
+//      }
 
-      val compensationMessage = awaitAssert {
-        successCommitLogProbe.expectMsgType[WriteToCommitLog]
-      }
+//      val compensationMessage = awaitAssert {
+//        successCommitLogProbe.expectMsgType[WriteToCommitLog]
+//      }
 
       awaitAssert {
         callingProbe.expectMsgType[RecordRejected]
@@ -180,17 +180,9 @@ class WriteCoordinatorErrorsSpec
         failureAccumulationProbe.expectMsgType[AddRecordToShard]
       }
 
-      awaitAssert {
-        successAccumulationProbe.expectMsgType[DeleteRecordFromShard]
-      }
-
-      val rejectionRequestNode1 = awaitAssert {
-        successCommitLogProbe.expectMsgType[WriteToCommitLog]
-      }
-
-      val rejectionRequestNode2 = awaitAssert {
-        failureCommitLogProbe.expectMsgType[WriteToCommitLog]
-      }
+//      awaitAssert {
+//        successAccumulationProbe.expectMsgType[DeleteRecordFromShard]
+//      }
 
       awaitAssert {
         callingProbe.expectMsgType[RecordRejected]

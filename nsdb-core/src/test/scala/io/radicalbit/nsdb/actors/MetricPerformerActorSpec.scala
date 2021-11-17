@@ -18,14 +18,14 @@ package io.radicalbit.nsdb.actors
 
 import akka.actor.SupervisorStrategy.Resume
 import akka.actor._
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.testkit.{TestActorRef, TestProbe}
 import io.radicalbit.nsdb.actors.MetricAccumulatorActor.Refresh
 import io.radicalbit.nsdb.actors.MetricPerformerActor.PerformShardWrites
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.index.BrokenTimeSeriesIndex
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.test.{NSDbSpecLike, NSDbTestKitSpecLike}
+import io.radicalbit.nsdb.test.NSDbTestKitSpecLike
 import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
