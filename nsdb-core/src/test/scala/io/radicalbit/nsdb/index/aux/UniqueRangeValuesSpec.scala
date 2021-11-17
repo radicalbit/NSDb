@@ -16,19 +16,13 @@
 
 package io.radicalbit.nsdb.index.aux
 
-import java.nio.file.Paths
-import java.util.UUID
-
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbStringType}
-import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.{Schema, TimeRangeContext}
-import io.radicalbit.nsdb.test.NSDbSpec
+import io.radicalbit.nsdb.test.{NSDbSpec, NSDbTimeSeriesIndexSpecLike}
 import org.apache.lucene.search.MatchAllDocsQuery
-import org.apache.lucene.store.MMapDirectory
-import org.scalatest.OneInstancePerTest
 
-class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
+class UniqueRangeValuesSpec extends NSDbSpec with NSDbTimeSeriesIndexSpecLike {
 
   val testRecords: Seq[Bit] = Seq(
     Bit(180000, 2.5, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 31L)),
@@ -49,14 +43,9 @@ class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
   "TimeSeriesIndex" should {
     "calculate unique range values on the value" in {
 
-      val timeSeriesIndex =
-        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+      testRecords.foreach(timeSeriesIndex.write)
 
-      val writer = timeSeriesIndex.getWriter
-
-      testRecords.foreach(timeSeriesIndex.write(_)(writer))
-
-      writer.close()
+      commit()
 
       val uniqueValues =
         timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
@@ -90,14 +79,9 @@ class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
 
     "calculate unique range values in case interval is not an exact divider of the global range" in {
 
-      val timeSeriesIndex =
-        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+      testRecords.foreach(timeSeriesIndex.write)
 
-      val writer = timeSeriesIndex.getWriter
-
-      testRecords.foreach(timeSeriesIndex.write(_)(writer))
-
-      writer.close()
+      commit()
 
       val uniqueValues =
         timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
@@ -132,17 +116,12 @@ class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
     }
 
     "calculate unique range when interval is equal to the range" in {
-      val timeSeriesIndex =
-        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
-
-      val writer = timeSeriesIndex.getWriter
-
       Seq(
         Bit(30000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
         Bit(0, 1.5, Map("surname"     -> "Doe"), Map("name" -> "Frankie"))
-      ).foreach(timeSeriesIndex.write(_)(writer))
+      ).foreach(timeSeriesIndex.write)
 
-      writer.close()
+      commit()
 
       timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
                                         Schema("testMetric", testRecords.head),
@@ -159,19 +138,14 @@ class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
     }
 
     "calculate unique range when interval is higher of the range" in {
-      val timeSeriesIndex =
-        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
-
-      val writer = timeSeriesIndex.getWriter
-
       Seq(
         Bit(60000, 7.5, Map("surname" -> "Doe"), Map("name" -> "Bill")),
         Bit(50000, 7.5, Map("surname" -> "Doe"), Map("name" -> "Bill")),
         Bit(40000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
         Bit(30000, 4.5, Map("surname" -> "Doe"), Map("name" -> "Frank")),
-      ).foreach(timeSeriesIndex.write(_)(writer))
+      ).foreach(timeSeriesIndex.write)
 
-      writer.close()
+      commit()
 
       timeSeriesIndex.uniqueRangeValues(new MatchAllDocsQuery,
                                         Schema("testMetric", testRecords.head),
@@ -190,14 +164,9 @@ class UniqueRangeValuesSpec extends NSDbSpec with OneInstancePerTest {
 
     "calculate unique range values on a tag" in {
 
-      val timeSeriesIndex =
-        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+      testRecords.foreach(timeSeriesIndex.write)
 
-      val writer = timeSeriesIndex.getWriter
-
-      testRecords.foreach(timeSeriesIndex.write(_)(writer))
-
-      writer.close()
+      commit()
 
       TimeRangeContext(180000, 0, 30000, Seq.empty)
 

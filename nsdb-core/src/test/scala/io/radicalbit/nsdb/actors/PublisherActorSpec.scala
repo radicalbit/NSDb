@@ -16,26 +16,20 @@
 
 package io.radicalbit.nsdb.actors
 
-import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
+import akka.testkit.{TestActorRef, TestProbe}
 import io.radicalbit.nsdb.actors.PublisherActor.Commands.{SubscribeBySqlStatement, Unsubscribe}
 import io.radicalbit.nsdb.actors.PublisherActor.Events.Unsubscribed
-import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString}
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.{Schema, TimeContext}
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.test.NSDbSpecLike
+import io.radicalbit.nsdb.protocol.RealTimeProtocol.Events.{RecordsPublished, SubscribedByQueryString}
+import io.radicalbit.nsdb.test.NSDbTestKitSpecLike
 import org.scalatest._
 
 import scala.concurrent.duration._
 
-class PublisherActorSpec
-    extends TestKit(ActorSystem("PublisherActorSpec"))
-    with ImplicitSender
-    with NSDbSpecLike
-    with OneInstancePerTest
-    with BeforeAndAfter {
+class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest with BeforeAndAfter {
 
   val testTimeContext: TimeContext = TimeContext(currentTime = 0)
 

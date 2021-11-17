@@ -25,7 +25,7 @@ import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.index.BrokenTimeSeriesIndex
 import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.test.NSDbSpecLike
+import io.radicalbit.nsdb.test.{NSDbSpecLike, NSDbTestKitSpecLike}
 import org.apache.lucene.store.MMapDirectory
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
@@ -52,12 +52,7 @@ class TestSupervisorActor(probe: ActorRef) extends Actor with ActorLogging {
   }
 }
 
-class MetricPerformerActorSpec
-    extends TestKit(ActorSystem("IndexerActorSpec"))
-    with ImplicitSender
-    with NSDbSpecLike
-    with BeforeAndAfterAll
-    with BeforeAndAfterEach {
+class MetricPerformerActorSpec extends NSDbTestKitSpecLike with BeforeAndAfterAll with BeforeAndAfterEach {
 
   val probe      = TestProbe()
   val probeActor = probe.ref

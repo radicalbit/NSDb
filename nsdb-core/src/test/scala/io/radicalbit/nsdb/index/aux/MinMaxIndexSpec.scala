@@ -16,21 +16,15 @@
 
 package io.radicalbit.nsdb.index.aux
 
-import java.nio.file.Paths
-import java.util.UUID
-
 import io.radicalbit.nsdb.common.NSDbType
 import io.radicalbit.nsdb.common.protocol.Bit
-import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.test.NSDbFlatSpec
+import io.radicalbit.nsdb.test.{NSDbFlatSpec, NSDbTimeSeriesIndexSpecLike}
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
-import org.apache.lucene.store.MMapDirectory
-import org.scalatest.OneInstancePerTest
 
-class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
+class MinMaxIndexSpec extends NSDbFlatSpec with NSDbTimeSeriesIndexSpecLike {
   private val BigIntValueSchema = Schema("testMetric",
                                          Bit(0,
                                              0,
@@ -55,11 +49,6 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
 
   "TimeSeriesIndex" should "return max values properly for a bigint value" in {
 
-    val timeSeriesIndex =
-      new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_min_max_index", UUID.randomUUID().toString)))
-
-    val writer = timeSeriesIndex.getWriter
-
     (0 to 10).foreach { j =>
       (0 to 10).foreach { i =>
         val testData =
@@ -69,10 +58,11 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
             dimensions = Map("dimension" -> s"dimension_$i"),
             tags = Map("tag1"            -> NSDbType(s"tag_$j"), "tag2" -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
           )
-        timeSeriesIndex.write(testData)(writer)
+        timeSeriesIndex.write(testData)
       }
     }
-    writer.close()
+
+    commit()
 
     val maxTag1 = timeSeriesIndex.getMaxGroupBy(new MatchAllDocsQuery, BigIntValueSchema, "tag1")
     maxTag1.size shouldBe 11
@@ -161,11 +151,6 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
 
   "TimeSeriesIndex" should "return max values properly for a decimal value" in {
 
-    val timeSeriesIndex =
-      new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_min_max_index", UUID.randomUUID().toString)))
-
-    val writer = timeSeriesIndex.getWriter
-
     (0 to 10).foreach { j =>
       (0 to 10).foreach { i =>
         val testData =
@@ -175,10 +160,11 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
             dimensions = Map("dimension" -> s"dimension_$i"),
             tags = Map("tag1"            -> NSDbType(s"tag_$j"), "tag2" -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
           )
-        timeSeriesIndex.write(testData)(writer).get
+        timeSeriesIndex.write(testData)
       }
     }
-    writer.close()
+
+    commit()
 
     val maxTag1 = timeSeriesIndex.getMaxGroupBy(new MatchAllDocsQuery, DecimalValueSchema, "tag1")
     maxTag1.size shouldBe 11
@@ -266,11 +252,6 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
   }
 
   "TimeSeriesIndex" should "filter results according to a query" in {
-    val timeSeriesIndex =
-      new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_min_max_index", UUID.randomUUID().toString)))
-
-    val writer = timeSeriesIndex.getWriter
-
     (0 to 10).foreach { j =>
       (0 to 10).foreach { i =>
         val testData =
@@ -280,10 +261,11 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
             dimensions = Map("dimension" -> s"dimension_$i"),
             tags = Map("tag1"            -> NSDbType(s"tag_$j"), "tag2" -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
           )
-        timeSeriesIndex.write(testData)(writer).get
+        timeSeriesIndex.write(testData)
       }
     }
-    writer.close()
+
+    commit()
 
     val maxTag1 = timeSeriesIndex.getMaxGroupBy(new TermQuery(new Term("tag1", "tag_5")), DecimalValueSchema, "tag1")
     maxTag1.size shouldBe 1
@@ -313,11 +295,6 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
   }
 
   "TimeSeriesIndex" should "properly discard records with null group key in min and max aggregations" in {
-    val timeSeriesIndex =
-      new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_first_last_index", UUID.randomUUID().toString)))
-
-    val writer = timeSeriesIndex.getWriter
-
     (0 to 5).foreach { j =>
       (0 to 10).foreach { i =>
         val testData =
@@ -327,7 +304,7 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
             dimensions = Map("dimension" -> s"dimension_$i"),
             tags = Map("tag1"            -> NSDbType(s"tag_$j"), "tag2" -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
           )
-        timeSeriesIndex.write(testData)(writer).get
+        timeSeriesIndex.write(testData)
       }
     }
     (6 to 10).foreach { j =>
@@ -339,10 +316,11 @@ class MinMaxIndexSpec extends NSDbFlatSpec with OneInstancePerTest {
             dimensions = Map("dimension" -> s"dimension_$i"),
             tags = Map("tag2"            -> NSDbType(j.toLong), "tag3" -> NSDbType(j + 0.2))
           )
-        timeSeriesIndex.write(testData)(writer).get
+        timeSeriesIndex.write(testData)
       }
     }
-    writer.close()
+
+    commit()
 
     val lastTag1 = timeSeriesIndex.getMaxGroupBy(new MatchAllDocsQuery, DecimalValueSchema, "tag1")
     lastTag1.size shouldBe 6
