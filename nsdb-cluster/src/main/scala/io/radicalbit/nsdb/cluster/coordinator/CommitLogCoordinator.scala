@@ -44,7 +44,7 @@ class CommitLogCoordinator extends ActorPathLogging {
     TimeUnit.SECONDS)
 
   def receive: Receive = {
-    case msg @ WriteToCommitLog(db, namespace, metric, _, _, _) =>
+    case msg @ WriteToCommitLog(db, namespace, metric, _, _) =>
       getWriter(db, namespace, metric).forward(msg)
 
     case _ =>

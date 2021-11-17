@@ -28,17 +28,15 @@ import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{RecordAccumulated, Re
 
 class MockedCommitLogCoordinator(probe: ActorRef) extends Actor with ActorLogging {
   override def receive: Receive = {
-    case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _, location)
-        if location.node.uniqueNodeId == "node1" && metric != "metric2" =>
+    case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _) =>
       probe ! msg
-      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
-    case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _, location)
-        if location.node.uniqueNodeId == "node2" && metric != "metric2" =>
+      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
+    case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _) =>
       probe ! msg
       sender ! WriteToCommitLogFailed(db, namespace, timestamp, metric, "mock failure reason")
-    case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _, location) =>
+    case msg @ WriteToCommitLog(db, namespace, metric, timestamp, _) =>
       probe ! msg
-      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
     case _ =>
       log.error("Not handled")
   }

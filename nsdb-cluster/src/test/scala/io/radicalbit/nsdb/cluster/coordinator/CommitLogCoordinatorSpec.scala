@@ -20,6 +20,7 @@ import java.io.File
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
+import io.radicalbit.nsdb.commit_log.CommitLogAction._
 import io.radicalbit.nsdb.commit_log.CommitLogWriterActor._
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.common.statement.{AbsoluteComparisonValue, Condition, DeleteSQLStatement, RangeExpression}
@@ -53,25 +54,7 @@ class CommitLogCoordinatorSpec
     "write a insert entry" in within(5.seconds) {
       val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
       awaitAssert {
-        commitLogCoordinatorActor ! WriteToCommitLog("db",
-                                                     "namespace",
-                                                     "metric",
-                                                     1L,
-                                                     ReceivedEntryAction(bit),
-                                                     Location("metric", NSDbNode.empty, 1, 1))
-        expectMsgType[WriteToCommitLogSucceeded]
-      }
-    }
-    //FIXME: Actually not implemented
-    "write a reject entry" in within(5.seconds) {
-      val bit = Bit(0, 1, Map("dim" -> "v"), Map.empty)
-      awaitAssert {
-        commitLogCoordinatorActor ! WriteToCommitLog("db1",
-                                                     "namespace1",
-                                                     "metric1",
-                                                     1L,
-                                                     RejectedEntryAction(bit),
-                                                     Location("metric", NSDbNode.empty, 1, 1))
+        commitLogCoordinatorActor ! WriteToCommitLog("db", "namespace", "metric", 1L, InsertBitAction(bit))
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
@@ -82,34 +65,19 @@ class CommitLogCoordinatorSpec
                            "metric2",
                            Condition(RangeExpression("age", AbsoluteComparisonValue(1L), AbsoluteComparisonValue(2L))))
       awaitAssert {
-        commitLogCoordinatorActor ! WriteToCommitLog("db2",
-                                                     "namespace2",
-                                                     "metric2",
-                                                     1L,
-                                                     DeleteAction(deleteStatement),
-                                                     Location("metric", NSDbNode.empty, 1, 1))
+        commitLogCoordinatorActor ! WriteToCommitLog("db2", "namespace2", "metric2", 1L, DeleteAction(deleteStatement))
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
     "write a metric deletion" in within(5.seconds) {
       awaitAssert {
-        commitLogCoordinatorActor ! WriteToCommitLog("db3",
-                                                     "namespace3",
-                                                     "metric3",
-                                                     1L,
-                                                     DeleteMetricAction(),
-                                                     Location("metric", NSDbNode.empty, 1, 1))
+        commitLogCoordinatorActor ! WriteToCommitLog("db3", "namespace3", "metric3", 1L, DeleteMetricAction())
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }
     "write a namespace deletion" in within(5.seconds) {
       awaitAssert {
-        commitLogCoordinatorActor ! WriteToCommitLog("db4",
-                                                     "namespace4",
-                                                     "",
-                                                     1L,
-                                                     DeleteNamespaceAction(),
-                                                     Location("metric", NSDbNode.empty, 1, 1))
+        commitLogCoordinatorActor ! WriteToCommitLog("db4", "namespace4", "", 1L, DeleteNamespaceAction())
         expectMsgType[WriteToCommitLogSucceeded]
       }
     }

@@ -21,8 +21,8 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{WriteToCommitLog, Wri
 
 class FakeCommitLogCoordinator extends Actor with ActorLogging {
   override def receive: Receive = {
-    case WriteToCommitLog(db, namespace, metric, timestamp, _, location) =>
-      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric, location)
+    case WriteToCommitLog(db, namespace, metric, timestamp, _) =>
+      sender ! WriteToCommitLogSucceeded(db, namespace, timestamp, metric)
     case unexpected =>
       log.error(s"UnexpectedMessage $unexpected")
       sender ! "UnexpectedMessage"

@@ -27,7 +27,7 @@ import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.WriteLo
 import io.radicalbit.nsdb.cluster.coordinator.MockedMetadataCoordinator._
 import io.radicalbit.nsdb.cluster.coordinator.mockedActors._
 import io.radicalbit.nsdb.cluster.extension.NSDbClusterSnapshot
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
+import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WriteToCommitLog
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
@@ -156,8 +156,6 @@ class WriteCoordinatorErrorsSpec
         successCommitLogProbe.expectMsgType[WriteToCommitLog]
       }
 
-      compensationMessage.action.shouldBe(RejectedEntryAction(record1))
-
       awaitAssert {
         callingProbe.expectMsgType[RecordRejected]
       }
@@ -190,13 +188,9 @@ class WriteCoordinatorErrorsSpec
         successCommitLogProbe.expectMsgType[WriteToCommitLog]
       }
 
-      rejectionRequestNode1.action.shouldBe(RejectedEntryAction(record2))
-
       val rejectionRequestNode2 = awaitAssert {
         failureCommitLogProbe.expectMsgType[WriteToCommitLog]
       }
-
-      rejectionRequestNode2.action.shouldBe(RejectedEntryAction(record2))
 
       awaitAssert {
         callingProbe.expectMsgType[RecordRejected]
