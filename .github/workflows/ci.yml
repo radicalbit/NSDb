@@ -27,11 +27,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v11
         with:
-          java-version: "adopt@1.8"
+          java-version: "openjdk@1.11"
       - name: Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
       - name: Code Style Check
         run: sbt fixCheck scalafmtCheck test:scalafmtCheck multi-jvm:scalafmtCheck
   cross-scala-compilation:
@@ -40,11 +40,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v11
         with:
-          java-version: "adopt@1.8"
+          java-version: "openjdk@1.11"
       - name: Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
       - name: Cross Compilation
         run: sbt +compile
   test:
@@ -53,11 +53,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v11
         with:
-          java-version: "adopt@1.8"
+          java-version: "openjdk@1.11"
       - name: Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
       - name: Build and Test
         run: sbt coverage testAll
       - name: Coverage Report
@@ -76,11 +76,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v11
         with:
-          java-version: "adopt@1.8"
+          java-version: "openjdk@1.11"
       - name: Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
       - name: Test Publish Artifacts
         run: sbt +publishLocal
       - name: Test Publish Docker image
@@ -94,9 +94,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v11
         with:
-          java-version: "adopt@1.8"
+          java-version: "openjdk@1.11"
       - name: Create Credentials
         run: ./artifactory-credentials.sh ${{ secrets.ARTIFACTORTY_USERNAME }} ${{ secrets.ARTIFACTORTY_PASSWORD }}
       - name: Publish Artifacts
@@ -115,10 +115,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v11
         with:
-          java-version: "adopt@1.8"
+          java-version: "openjdk@1.11"
       - name: Coursier cache
-        uses: coursier/cache-action@v5
+        uses: coursier/cache-action@v6
       - name: Publish Docker image
         run: sbt ";project nsdb-cluster; docker:publish"
