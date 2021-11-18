@@ -315,17 +315,6 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
       })
       .flatMap(results => handleAccumulatorResponses(results, db, namespace, metric, bit, schema, publish))
 
-//      .flatMap { results =>
-//        handleCommitLogCoordinatorResponses(results, db, namespace, metric, bit, schema) { succeedResponses =>
-//          Future
-//            .sequence(succeedResponses.map { commitLogSuccess =>
-//              accumulateRecord(db, namespace, metric, bit, commitLogSuccess.location)
-//            })
-//            .flatMap { results =>
-//              handleAccumulatorResponses(results, db, namespace, metric, bit, schema, publish)
-//            }
-//        }
-//      }
   }
 
   override def preStart(): Unit = {

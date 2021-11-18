@@ -17,7 +17,6 @@
 package io.radicalbit.nsdb.cluster.coordinator
 
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
-import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
@@ -31,14 +30,13 @@ import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.WriteToCommitLog
 import io.radicalbit.nsdb.common.protocol.{Bit, NSDbNode}
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{LiveLocationsGot, RecordRejected}
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll}
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.collection.mutable
-import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class MockedMetadataCoordinator extends Actor with ActorLogging {
@@ -117,22 +115,45 @@ class WriteCoordinatorErrorsSpec
     NSDbClusterSnapshot(system).addNode(node1)
     NSDbClusterSnapshot(system).addNode(node2)
 
-    Await.result(
-      writeCoordinatorActor ? SubscribeCommitLogCoordinator(successfulCommitLogCoordinator, node1.uniqueNodeId),
-      10 seconds)
-    Await.result(writeCoordinatorActor ? SubscribeCommitLogCoordinator(failingCommitLogCoordinator, node2.uniqueNodeId),
-                 10 seconds)
+    writeCoordinatorActor ! SubscribeCommitLogCoordinator(successfulCommitLogCoordinator, node1.uniqueNodeId)
+    awaitAssert{
+      expectMsgType[CommitLogCoordinatorSubscribed]
+    }
 
-    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(node1MetricsDataActor, node1.uniqueNodeId),
-                 10 seconds)
-    Await.result(writeCoordinatorActor ? SubscribeMetricsDataActor(node2MetricsDataActor, node2.uniqueNodeId),
-                 10 seconds)
+    writeCoordinatorActor ! SubscribeCommitLogCoordinator(failingCommitLogCoordinator, node2.uniqueNodeId)
+    awaitAssert{
+      expectMsgType[CommitLogCoordinatorSubscribed]
+    }
 
-    Await.result(writeCoordinatorActor ? SubscribePublisher(publisherActor, node1.uniqueNodeId), 10 seconds)
-    Await.result(writeCoordinatorActor ? SubscribePublisher(publisherActor, node2.uniqueNodeId), 10 seconds)
+    writeCoordinatorActor ! SubscribeMetricsDataActor(node1MetricsDataActor, node1.uniqueNodeId)
+    awaitAssert{
+      expectMsgType[MetricsDataActorSubscribed]
+    }
 
-    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric1, record1), 10 seconds)
-    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, metric2, record2), 10 seconds)
+    writeCoordinatorActor ! SubscribeMetricsDataActor(node2MetricsDataActor, node2.uniqueNodeId)
+    awaitAssert{
+      expectMsgType[MetricsDataActorSubscribed]
+    }
+
+    writeCoordinatorActor ! SubscribePublisher(publisherActor, node1.uniqueNodeId)
+    awaitAssert{
+      expectMsgType[PublisherSubscribed]
+    }
+
+    writeCoordinatorActor ! SubscribePublisher(publisherActor, node2.uniqueNodeId)
+    awaitAssert{
+      expectMsgType[PublisherSubscribed]
+    }
+
+    schemaCoordinator ! UpdateSchemaFromRecord(db, namespace, metric1, record1)
+    awaitAssert{
+      expectMsgType[SchemaUpdated]
+    }
+
+    schemaCoordinator ! UpdateSchemaFromRecord(db, namespace, metric2, record2)
+    awaitAssert{
+      expectMsgType[SchemaUpdated]
+    }
   }
 
   "WriteCoordinator" should {
@@ -147,14 +168,6 @@ class WriteCoordinatorErrorsSpec
       awaitAssert {
         failureCommitLogProbe.expectMsgType[WriteToCommitLog]
       }
-
-//      awaitAssert {
-//        failureCommitLogProbe.expectMsgType[WriteToCommitLog]
-//      }
-
-//      val compensationMessage = awaitAssert {
-//        successCommitLogProbe.expectMsgType[WriteToCommitLog]
-//      }
 
       awaitAssert {
         callingProbe.expectMsgType[RecordRejected]
@@ -179,10 +192,6 @@ class WriteCoordinatorErrorsSpec
       awaitAssert {
         failureAccumulationProbe.expectMsgType[AddRecordToShard]
       }
-
-//      awaitAssert {
-//        successAccumulationProbe.expectMsgType[DeleteRecordFromShard]
-//      }
 
       awaitAssert {
         callingProbe.expectMsgType[RecordRejected]

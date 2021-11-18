@@ -230,35 +230,6 @@ class MetadataCoordinator(clusterListener: ActorRef,
     }
   }
 
-//  /**
-//    * Evict a shard physically from FS.
-//    * @param db the db to be written.
-//    * @param namespace the namespace to be written.
-//    *                  @param ts the time instant of the commit log operation
-//    * @param location the location to be evicted.
-//    * @return the result of the operation.
-//    */
-//  private def shardEvictCommitLogAck(db: String,
-//                                     namespace: String,
-//                                     ts: Long,
-//                                     location: Location): Future[CommitLogResponse] = {
-//    commitLogCoordinators.get(location.node.uniqueNodeId) match {
-//      case Some(commitLogCoordinator) =>
-//        (commitLogCoordinator ? WriteToCommitLog(
-//          db = db,
-//          namespace = namespace,
-//          metric = location.metric,
-//          ts = ts,
-//          action = EvictShardAction(location),
-//          location
-//        )).mapTo[CommitLogResponse]
-//      case None =>
-//        //in case there is not a commit log for that node, we give back a success.
-//        //the location will be processed afterwards until a commit log for the node will be available again
-//        Future(WriteToCommitLogSucceeded(db, namespace, ts, location.metric, location))
-//    }
-//  }
-
   /**
     * Performs a partial eviction in a location by executing a [[DeleteSQLStatement]].
     * @param statement the delete statement.
@@ -364,21 +335,7 @@ class MetadataCoordinator(clusterListener: ActorRef,
                     }
                   }
 
-//                val cacheResponsesAckedInCommitLog = cacheResponses.flatMap { locationEvictedFromCache =>
-//                  Future
-//                    .sequence(locationEvictedFromCache.map(locationEvicted =>
-//                      shardEvictCommitLogAck(db, namespace, System.currentTimeMillis(), locationEvicted.location)))
-//                    .map { responses =>
-//                      manageErrors[WriteToCommitLogSucceeded, WriteToCommitLogFailed](responses) { errors =>
-//                        log.error("errors during delete locations from cache {}", errors)
-//                        context.system.terminate()
-//                      }
-//                    }
-//                  Future(locationEvictedFromCache)
-//                }
-
                 val commitLogResponses =
-//                  cacheResponsesAckedInCommitLog.flatMap { res =>
                   cacheResponses.flatMap { locationEvictedFromCache =>
                     log.debug("evicted locations {}", locationEvictedFromCache.map(_.location))
                     Future
