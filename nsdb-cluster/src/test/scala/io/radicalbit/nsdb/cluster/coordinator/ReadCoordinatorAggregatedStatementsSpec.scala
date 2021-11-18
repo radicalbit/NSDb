@@ -22,8 +22,6 @@ import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
-import scala.concurrent.duration._
-
 class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpec {
 
   "ReadCoordinator" when {

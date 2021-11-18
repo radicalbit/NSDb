@@ -366,7 +366,7 @@ class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest wit
                                 Some(testTimeContext))
       )
 
-      probe.expectMsgType[SubscribedByQueryString]
+      val temporalCountQuid = probe.expectMsgType[SubscribedByQueryString].quid
       probe.send(
         publisherActor,
         SubscribeBySqlStatement(probeActor,
@@ -377,7 +377,7 @@ class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest wit
                                 testTemporalAggregatedSqlStatement(SumAggregation("value")),
                                 Some(testTimeContext))
       )
-      probe.expectMsgType[SubscribedByQueryString]
+      val temporalSumQuid = probe.expectMsgType[SubscribedByQueryString].quid
       probe.send(
         publisherActor,
         SubscribeBySqlStatement(probeActor,
@@ -388,7 +388,7 @@ class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest wit
                                 testTemporalAggregatedSqlStatement(AvgAggregation("value")),
                                 Some(testTimeContext))
       )
-      probe.expectMsgType[SubscribedByQueryString]
+      val temporalAvgQuid = probe.expectMsgType[SubscribedByQueryString].quid
       probe.send(
         publisherActor,
         SubscribeBySqlStatement(probeActor,
@@ -399,7 +399,7 @@ class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest wit
                                 testTemporalAggregatedSqlStatement(MinAggregation("value")),
                                 Some(testTimeContext))
       )
-      probe.expectMsgType[SubscribedByQueryString]
+      val temporalMinQuid = probe.expectMsgType[SubscribedByQueryString].quid
       probe.send(
         publisherActor,
         SubscribeBySqlStatement(probeActor,
@@ -410,7 +410,9 @@ class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest wit
                                 testTemporalAggregatedSqlStatement(MaxAggregation("value")),
                                 Some(testTimeContext))
       )
-      probe.expectMsgType[SubscribedByQueryString]
+      val temporalMaxQuid = probe.expectMsgType[SubscribedByQueryString].quid
+
+      expectNoMessage(1 second)
 
       (1 to 10).foreach { i =>
         probe.send(
@@ -418,32 +420,36 @@ class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest wit
           PublishRecord("db", "registry", "people", Bit(100 + i, 25L, Map.empty, Map("name" -> "john")), schema))
       }
 
-      probe.expectMsgType[RecordsPublished]
-      val countBucketPublished = probe.expectMsgType[RecordsPublished]
+      val publishRecords = (1 to 5).map { _ =>
+        val msg = probe.expectMsgType[RecordsPublished]
+        msg.quid -> msg
+      }.toMap
+
+      val countBucketPublished = publishRecords(temporalCountQuid)
       countBucketPublished.metric shouldBe "people"
       countBucketPublished.records shouldBe Seq(
         Bit(110, 10L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("count(*)" -> 10L))
       )
 
-      val sumBucketPublished = probe.expectMsgType[RecordsPublished]
+      val sumBucketPublished = publishRecords(temporalSumQuid)
       sumBucketPublished.metric shouldBe "people"
       sumBucketPublished.records shouldBe Seq(
         Bit(110, 250L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("sum(*)" -> 250L))
       )
 
-      val avgBucketPublished = probe.expectMsgType[RecordsPublished]
+      val avgBucketPublished = publishRecords(temporalAvgQuid)
       avgBucketPublished.metric shouldBe "people"
       avgBucketPublished.records shouldBe Seq(
         Bit(110, 25.0, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("avg(*)" -> 25.0))
       )
 
-      val minBucketPublished = probe.expectMsgType[RecordsPublished]
+      val minBucketPublished = publishRecords(temporalMinQuid)
       minBucketPublished.metric shouldBe "people"
       minBucketPublished.records shouldBe Seq(
         Bit(110, 25L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("min(*)" -> 25L))
       )
 
-      val maxBucketPublished = probe.expectMsgType[RecordsPublished]
+      val maxBucketPublished = publishRecords(temporalMaxQuid)
       maxBucketPublished.metric shouldBe "people"
       maxBucketPublished.records shouldBe Seq(
         Bit(110, 25L, Map("upperBound" -> 110L, "lowerBound" -> 101L), Map("max(*)" -> 25L))
