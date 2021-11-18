@@ -16,7 +16,7 @@
 name: Development Continous Integration
 on:
   push:
-    branches: [ '**' ]
+    branches: [ '**/**' ]
 jobs:
   code-style:
     runs-on: ubuntu-latest

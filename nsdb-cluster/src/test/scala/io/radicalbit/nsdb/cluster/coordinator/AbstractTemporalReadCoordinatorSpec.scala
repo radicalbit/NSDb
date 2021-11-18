@@ -16,83 +16,74 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.pattern.ask
-import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsAdded
 import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{MetricDropped, RecordAccumulated, SchemaUpdated}
 
 abstract class AbstractTemporalReadCoordinatorSpec extends AbstractReadCoordinatorSpec {
 
-  override def prepareTestData()(implicit timeout: Timeout): Unit = {
+  override def prepareTestData(): Unit = {
     val location1 = Location(_: String, node, 100000, 190000)
     val location2 = Location(_: String, node, 0, 90000)
 
     //drop metrics
-    Await.result(
-      metricsDataActor ? DropMetricWithLocations(db,
-                                                 namespace,
-                                                 TemporalLongMetric.name,
-                                                 Seq(location1(TemporalLongMetric.name),
-                                                     location2(TemporalLongMetric.name))),
-      10 seconds
+    probe.send(
+      metricsDataActor,
+      DropMetricWithLocations(db,
+                              namespace,
+                              TemporalLongMetric.name,
+                              Seq(location1(TemporalLongMetric.name), location2(TemporalLongMetric.name)))
     )
-    Await.result(
-      metricsDataActor ? DropMetricWithLocations(db,
-                                                 namespace,
-                                                 TemporalDoubleMetric.name,
-                                                 Seq(location1(TemporalDoubleMetric.name),
-                                                     location2(TemporalDoubleMetric.name))),
-      10 seconds
+    probe.expectMsgType[MetricDropped]
+    probe.send(
+      metricsDataActor,
+      DropMetricWithLocations(db,
+                              namespace,
+                              TemporalDoubleMetric.name,
+                              Seq(location1(TemporalDoubleMetric.name), location2(TemporalDoubleMetric.name)))
     )
+    probe.expectMsgType[MetricDropped]
 
-    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db,
-                                                            namespace,
-                                                            TemporalLongMetric.name,
-                                                            TemporalLongMetric.testRecords.head),
-                 10 seconds)
-    Await.result(schemaCoordinator ? UpdateSchemaFromRecord(db,
-                                                            namespace,
-                                                            TemporalDoubleMetric.name,
-                                                            TemporalDoubleMetric.testRecords.head),
-                 10 seconds)
+    probe.send(schemaCoordinator,
+               UpdateSchemaFromRecord(db, namespace, TemporalLongMetric.name, TemporalLongMetric.testRecords.head))
+    probe.expectMsgType[SchemaUpdated]
+    probe.send(schemaCoordinator,
+               UpdateSchemaFromRecord(db, namespace, TemporalDoubleMetric.name, TemporalDoubleMetric.testRecords.head))
+    probe.expectMsgType[SchemaUpdated]
 
-    Await.result(
-      metadataCoordinator ? AddLocations(db,
-                                         namespace,
-                                         Seq(location1(TemporalLongMetric.name), location1(TemporalDoubleMetric.name))),
-      10 seconds)
+    probe.send(
+      metadataCoordinator,
+      AddLocations(db, namespace, Seq(location1(TemporalLongMetric.name), location1(TemporalDoubleMetric.name))))
+    probe.expectMsgType[LocationsAdded]
 
     TemporalLongMetric.recordsShard1
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location1(TemporalLongMetric.name), r),
-                     10 seconds)
+        probe.send(metricsDataActor, AddRecordToShard(db, namespace, location1(TemporalLongMetric.name), r))
+        probe.expectMsgType[RecordAccumulated]
       })
     TemporalDoubleMetric.recordsShard1
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location1(TemporalDoubleMetric.name), r),
-                     10 seconds)
+        probe.send(metricsDataActor, AddRecordToShard(db, namespace, location1(TemporalDoubleMetric.name), r))
+        probe.expectMsgType[RecordAccumulated]
       })
 
-    Await.result(
-      metadataCoordinator ? AddLocations(db,
-                                         namespace,
-                                         Seq(location2(TemporalLongMetric.name), location2(TemporalDoubleMetric.name))),
-      10 seconds)
+    probe.send(
+      metadataCoordinator,
+      AddLocations(db, namespace, Seq(location2(TemporalLongMetric.name), location2(TemporalDoubleMetric.name))))
+    probe.expectMsgType[LocationsAdded]
 
     TemporalLongMetric.recordsShard2
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(TemporalLongMetric.name), r),
-                     10 seconds)
+        probe.send(metricsDataActor, AddRecordToShard(db, namespace, location2(TemporalLongMetric.name), r))
+        probe.expectMsgType[RecordAccumulated]
       })
     TemporalDoubleMetric.recordsShard2
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(TemporalDoubleMetric.name), r),
-                     10 seconds)
+        probe.send(metricsDataActor, AddRecordToShard(db, namespace, location2(TemporalDoubleMetric.name), r))
+        probe.expectMsgType[RecordAccumulated]
       })
   }
 

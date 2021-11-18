@@ -29,7 +29,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
   "ReadCoordinator" when {
 
     "receive a select containing a GTE selection and a group by" should {
-      "execute it successfully" in within(5.seconds) {
+      "execute it successfully" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -40,9 +40,10 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               distinct = false,
               fields = ListFields(List(Field("value", Some(SumAggregation("value"))))),
               condition = Some(
-                Condition(ComparisonExpression(dimension = "timestamp",
-                                               comparison = GreaterOrEqualToOperator,
-                                               value = AbsoluteComparisonValue(2L)))),
+                Condition(
+                  ComparisonExpression(dimension = "timestamp",
+                                       comparison = GreaterOrEqualToOperator,
+                                       value = AbsoluteComparisonValue(2L)))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           )
@@ -56,7 +57,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
     }
 
     "receive a select containing a GTE selection and a group by without any aggregation" should {
-      "fail" in within(5.seconds) {
+      "fail" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -67,9 +68,10 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
               distinct = false,
               fields = ListFields(List(Field("creationDate", None))),
               condition = Some(
-                Condition(ComparisonExpression(dimension = "timestamp",
-                                               comparison = GreaterOrEqualToOperator,
-                                               value = AbsoluteComparisonValue(2L)))),
+                Condition(
+                  ComparisonExpression(dimension = "timestamp",
+                                       comparison = GreaterOrEqualToOperator,
+                                       value = AbsoluteComparisonValue(2L)))),
               groupBy = Some(SimpleGroupByAggregation("name"))
             )
           )
@@ -81,7 +83,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
     }
 
     "receive a select containing a non existing entity" should {
-      "return an error message properly" in within(5.seconds) {
+      "return an error message properly" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -100,7 +102,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
     }
 
     "receive a select containing a group by on string dimension " should {
-      "execute it successfully when count(*) is used instead of value" in within(5.seconds) {
+      "execute it successfully when count(*) is used instead of value" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -128,7 +130,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         )
       }
 
-      "execute it successfully with asc ordering over string dimension" in within(5.seconds) {
+      "execute it successfully with asc ordering over string dimension" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -156,7 +158,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         )
       }
 
-      "execute it successfully with desc ordering over string dimension" in within(5.seconds) {
+      "execute it successfully with desc ordering over string dimension" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -208,7 +210,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         }
       }
 
-      "execute it successfully with desc ordering over numerical dimension" in within(5.seconds) {
+      "execute it successfully with desc ordering over numerical dimension" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -249,7 +251,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
 
       }
 
-      "execute a count successfully with asc ordering over numerical dimension" in within(5.seconds) {
+      "execute a count successfully with asc ordering over numerical dimension" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -271,7 +273,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         }.values.map(_.value.rawValue) shouldBe Seq(1, 1)
       }
 
-      "execute it successfully with asc ordering over numerical dimension" in within(5.seconds) {
+      "execute it successfully with asc ordering over numerical dimension" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -315,7 +317,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
     }
 
     "receive a select containing a group by on long dimension" should {
-      "execute it successfully with count aggregation" in within(5.seconds) {
+      "execute it successfully with count aggregation" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -340,7 +342,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         )
       }
 
-      "execute it successfully with sum aggregation" in within(5.seconds) {
+      "execute it successfully with sum aggregation" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -367,7 +369,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
     }
 
     "receive a select containing a group by on double dimension" should {
-      "execute it successfully with count aggregation" in within(5.seconds) {
+      "execute it successfully with count aggregation" in {
         probe.send(
           readCoordinatorActor,
           ExecuteStatement(
@@ -393,7 +395,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       }
     }
 
-    "execute it successfully with sum aggregation" in within(5.seconds) {
+    "execute it successfully with sum aggregation" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -418,7 +420,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       )
     }
 
-    "execute it successfully with first aggregation" in within(5.seconds) {
+    "execute it successfully with first aggregation" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -443,7 +445,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       )
     }
 
-    "execute it successfully with last aggregation" in within(5.seconds) {
+    "execute it successfully with last aggregation" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -467,7 +469,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         Bit(10L, 4L, Map.empty, Map("height" -> 32.0))
       )
     }
-    "execute it successfully with max aggregation with ordering" in within(5.seconds) {
+    "execute it successfully with max aggregation with ordering" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -491,7 +493,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         Bit(0L, 4L, Map.empty, Map("height" -> 32.0))
       )
     }
-    "execute it successfully with min aggregation with ordering" in within(5.seconds) {
+    "execute it successfully with min aggregation with ordering" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -516,7 +518,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
       )
     }
 
-    "execute it successfully with max aggregation with ordering and limiting" in within(5.seconds) {
+    "execute it successfully with max aggregation with ordering and limiting" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -540,7 +542,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         Bit(0L, 5L, Map.empty, Map("height" -> 31.0))
       )
     }
-    "execute it successfully with min aggregation with ordering and limiting" in within(5.seconds) {
+    "execute it successfully with min aggregation with ordering and limiting" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -564,7 +566,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         Bit(0L, 5L, Map.empty, Map("height" -> 31.0))
       )
     }
-    "execute it successfully with avg aggregation on a long value metric" in within(5.seconds) {
+    "execute it successfully with avg aggregation on a long value metric" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(
@@ -589,7 +591,7 @@ class ReadCoordinatorAggregatedStatementsSpec extends AbstractReadCoordinatorSpe
         Bit(0L, 2.0, Map.empty, Map("height" -> 32.0))
       )
     }
-    "execute it successfully with avg aggregation on a double value metric" in within(5.seconds) {
+    "execute it successfully with avg aggregation on a double value metric" in {
       probe.send(
         readCoordinatorActor,
         ExecuteStatement(

@@ -365,6 +365,7 @@ class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest wit
                                 testTemporalAggregatedSqlStatement(CountAggregation("value")),
                                 Some(testTimeContext))
       )
+
       probe.expectMsgType[SubscribedByQueryString]
       probe.send(
         publisherActor,
@@ -417,6 +418,7 @@ class PublisherActorSpec extends NSDbTestKitSpecLike with OneInstancePerTest wit
           PublishRecord("db", "registry", "people", Bit(100 + i, 25L, Map.empty, Map("name" -> "john")), schema))
       }
 
+      probe.expectMsgType[RecordsPublished]
       val countBucketPublished = probe.expectMsgType[RecordsPublished]
       countBucketPublished.metric shouldBe "people"
       countBucketPublished.records shouldBe Seq(
