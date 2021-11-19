@@ -16,26 +16,19 @@
 
 package io.radicalbit.nsdb.index
 
-import java.nio.file.Paths
-import java.util.UUID
-
 import io.radicalbit.nsdb.common.NSDbLongType
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement.CountAggregation
 import io.radicalbit.nsdb.model.TimeRange
-import io.radicalbit.nsdb.test.NSDbSpec
+import io.radicalbit.nsdb.test.{NSDbSpec, NSDbTimeSeriesIndexSpecLike}
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search.{MatchAllDocsQuery, TermQuery}
-import org.apache.lucene.store.MMapDirectory
-import org.scalatest.OneInstancePerTest
 
-class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
+class TimeRangeFacetSpec extends NSDbSpec with NSDbTimeSeriesIndexSpecLike {
 
   "FacetRangeIndex" should {
     "supports facet range query on timestamp without where conditions" in {
-      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
       val records: Seq[Bit] = (0 to 30).map { i =>
         Bit(timestamp = i.toLong,
             value = i,
@@ -43,9 +36,8 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
             tags = Map("tag"             -> s"tag_${i / 4}"))
       }
 
-      implicit val writer = timeSeriesIndex.getWriter
       records.foreach(timeSeriesIndex.write)
-      writer.close()
+      commit()
 
       val ranges: Seq[TimeRange] = Seq(
         TimeRange(0L, 10L, true, false),
@@ -71,8 +63,6 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
     }
 
     "supports facet range query on timestamp with where condition on value" in {
-      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
       val records: Seq[Bit] = (0 to 30).map { i =>
         Bit(timestamp = i.toLong,
             value = i.toLong,
@@ -80,9 +70,8 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
             tags = Map("tag"             -> s"tag_${i / 4}"))
       }
 
-      implicit val writer = timeSeriesIndex.getWriter
       records.foreach(timeSeriesIndex.write)
-      writer.close()
+      commit()
 
       val ranges: Seq[TimeRange] = Seq(
         TimeRange(0L, 10L, true, false),
@@ -108,8 +97,6 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
     }
 
     "supports facet range query on timestamp with where condition on string dimension" in {
-      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
       val records: Seq[Bit] = (0 to 30).map { i =>
         Bit(timestamp = i.toLong,
             value = i.toLong,
@@ -117,9 +104,8 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
             tags = Map("tag"             -> s"tag_${i / 10}"))
       }
 
-      implicit val writer = timeSeriesIndex.getWriter
       records.foreach(timeSeriesIndex.write)
-      writer.close()
+      commit()
 
       val ranges: Seq[TimeRange] = Seq(
         TimeRange(0L, 10L, true, false),
@@ -146,8 +132,6 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
     }
 
     "supports facet range query on timestamp with where condition on string tag" in {
-      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
       val records: Seq[Bit] = (0 to 30).map { i =>
         Bit(timestamp = i.toLong,
             value = i.toLong,
@@ -155,9 +139,8 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
             tags = Map("tag"             -> s"tag_${i / 10}"))
       }
 
-      implicit val writer = timeSeriesIndex.getWriter
       records.foreach(timeSeriesIndex.write)
-      writer.close()
+      commit()
 
       val ranges: Seq[TimeRange] = Seq(
         TimeRange(0L, 10L, true, false),
@@ -183,8 +166,6 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
     }
 
     "supports temporal facet aggregation query on timestamp with range on timestamp" in {
-      val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
       val records: Seq[Bit] = (0 to 50).map { i =>
         Bit(timestamp = i.toLong,
             value = i.toLong,
@@ -192,9 +173,8 @@ class TimeRangeFacetSpec extends NSDbSpec with OneInstancePerTest {
             tags = Map("tag"             -> s"tag_${i / 10}"))
       }
 
-      implicit val writer = timeSeriesIndex.getWriter
       records.foreach(timeSeriesIndex.write)
-      writer.close()
+      commit()
 
       val ranges: Seq[TimeRange] = Seq(
         TimeRange(0L, 10L, true, false),

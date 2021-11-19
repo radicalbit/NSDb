@@ -16,27 +16,18 @@
 
 package io.radicalbit.nsdb.index
 
-import java.nio.file.Paths
-import java.util.UUID
-
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.test.NSDbFlatSpec
+import io.radicalbit.nsdb.test.{NSDbFlatSpec, NSDbTimeSeriesIndexSpecLike}
 import org.apache.lucene.document.LongPoint
 import org.apache.lucene.index.Term
 import org.apache.lucene.search._
-import org.apache.lucene.store.MMapDirectory
-import org.scalatest.OneInstancePerTest
 
-class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
+class TimeSeriesIndexTest extends NSDbFlatSpec with NSDbTimeSeriesIndexSpecLike {
 
   private val schema = Schema("", Bit(0, 0, Map("dimension" -> "d"), Map("tag" -> "t")))
 
   "TimeSeriesIndex" should "write and read properly on disk" in {
-
-    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
-    val metricWriter = timeSeriesIndex.getWriter
 
     (0 to 100).foreach { i =>
       val testData =
@@ -44,9 +35,10 @@ class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
             value = 23,
             dimensions = Map("dimension" -> s"dimension_$i"),
             tags = Map("tag"             -> s"tag_$i"))
-      timeSeriesIndex.write(testData)(metricWriter)
+      timeSeriesIndex.write(testData)
     }
-    metricWriter.close()
+
+    commit()
 
     timeSeriesIndex
       .query(schema, new WildcardQuery(new Term("dimension", "dimension_*")), Seq.empty, 100, None)
@@ -55,10 +47,6 @@ class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
   }
 
   "TimeSeriesIndex" should "support values containing dashes" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
-    implicit val writer = timeSeriesIndex.getWriter
-
     (0 to 100).foreach { i =>
       val testData =
         Bit(timestamp = i,
@@ -68,7 +56,7 @@ class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
       timeSeriesIndex.write(testData)
     }
 
-    writer.close()
+    commit()
 
     val query = new TermQuery(new Term("dimension", "dimension-10"))
 
@@ -85,10 +73,6 @@ class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
   }
 
   "TimeSeriesIndex" should "support range queries and sorting" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
-    implicit val writer = timeSeriesIndex.getWriter
-
     (0 to 100).foreach { i =>
       val testData =
         Bit(timestamp = i,
@@ -98,7 +82,7 @@ class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
       timeSeriesIndex.write(testData)
     }
 
-    writer.close()
+    commit()
 
     val query = LongPoint.newRangeQuery("timestamp", 10, 20)
 
@@ -116,10 +100,6 @@ class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
   }
 
   "TimeSeriesIndex" should "delete records" in {
-    val timeSeriesIndex = new TimeSeriesIndex(new MMapDirectory(Paths.get(s"target/test_index/${UUID.randomUUID}")))
-
-    implicit val writer = timeSeriesIndex.getWriter
-
     val timestamp = System.currentTimeMillis
 
     val testData = Bit(timestamp = timestamp,
@@ -129,18 +109,15 @@ class TimeSeriesIndexTest extends NSDbFlatSpec with OneInstancePerTest {
 
     timeSeriesIndex.write(testData)
 
-    writer.close()
+    commit()
 
     val queryExist  = LongPoint.newExactQuery("timestamp", timestamp)
     val resultExist = timeSeriesIndex.query(schema, queryExist, Seq.empty, 100, None)
     resultExist.size shouldBe 1
 
-    val deleteWriter = timeSeriesIndex.getWriter
-    timeSeriesIndex.delete(testData)(deleteWriter)
+    timeSeriesIndex.delete(testData)
 
-    deleteWriter.close()
-
-    timeSeriesIndex.refresh()
+    commit()
 
     val query  = LongPoint.newExactQuery("timestamp", timestamp)
     val result = timeSeriesIndex.query(schema, query, Seq.empty, 100, None)

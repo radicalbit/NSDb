@@ -63,9 +63,6 @@ class OneForOneWithRetriesStrategySpec
         throw new RuntimeException()
     }
 
-    override def postStop(): Unit = {
-      println("aaaaaa")
-    }
   }
 
   val testSupervisor: TestActorRef[TestSupervisorActor] =

@@ -40,6 +40,11 @@ public class LongRangeFacetLongSum extends RangeFacetCounts {
 
   private final long[] summations;
 
+  @Override
+  protected LongRange[] getLongRanges() {
+    return (LongRange[]) this.ranges;
+  }
+
   /** Create {@code LongRangeFacetCounts}, using {@link
    *  LongValuesSource} from the specified rangeField. */
   public LongRangeFacetLongSum(String rangeField, String valueField, FacetsCollector hits, LongRange... ranges) throws IOException {
@@ -50,9 +55,7 @@ public class LongRangeFacetLongSum extends RangeFacetCounts {
 
   private void sum(LongValuesSource rangeSource, LongValuesSource valueSource, List<MatchingDocs> matchingDocs) throws IOException {
 
-    LongRange[] ranges = (LongRange[]) this.ranges;
-
-    LongRangeLongSummation counter = new LongRangeLongSummation(ranges);
+    LongRangeLongSummation counter = new LongRangeLongSummation(getLongRanges());
 
     int missingCount = 0;
     for (MatchingDocs hits : matchingDocs) {

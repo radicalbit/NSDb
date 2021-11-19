@@ -48,11 +48,14 @@ public class LongRangeFacetDoubleMinMax extends RangeFacetCounts {
     minMax(LongValuesSource.fromLongField(rangeField), DoubleValuesSource.fromDoubleField(valueField), hits.getMatchingDocs(),checkMin);
   }
 
+  @Override
+  protected LongRange[] getLongRanges() {
+    return (LongRange[]) this.ranges;
+  }
+
   private void minMax(LongValuesSource rangeSource, DoubleValuesSource valueSource, List<MatchingDocs> matchingDocs,boolean checkMin) throws IOException {
 
-    LongRange[] ranges = (LongRange[]) this.ranges;
-
-    LongRangeDoubleMinMax counter = new LongRangeDoubleMinMax(ranges,checkMin);
+    LongRangeDoubleMinMax counter = new LongRangeDoubleMinMax(getLongRanges(),checkMin);
 
     int missingCount = 0;
     for (MatchingDocs hits : matchingDocs) {

@@ -27,21 +27,21 @@ object Dependencies {
   }
 
   object scalaModules {
-    lazy val version           = "1.1.2"
+    lazy val version           = "2.0.0"
     lazy val namespace         = "org.scala-lang.modules"
     lazy val parserCombinators = namespace %% "scala-parser-combinators" % version
 
-    lazy val java8Compatibility = namespace %% "scala-java8-compat" % "0.9.1"
+    lazy val java8Compatibility = namespace %% "scala-java8-compat" % "1.0.2"
   }
 
   object scopt {
-    lazy val version   = "3.7.1"
+    lazy val version   = "4.0.1"
     lazy val namespace = "com.github.scopt"
     val scopt          = namespace %% "scopt" % version
   }
 
   object cats {
-    lazy val version   = "2.6.0"
+    lazy val version   = "2.6.1"
     lazy val namespace = "org.typelevel"
     lazy val cats_core      = namespace %% "cats-core" % version
   }
@@ -53,7 +53,7 @@ object Dependencies {
   }
 
   object akka {
-    lazy val version   = "2.6.15"
+    lazy val version   = "2.6.17"
     lazy val namespace = "com.typesafe.akka"
 
     lazy val actor                  = namespace %% "akka-actor"                  % version
@@ -74,26 +74,26 @@ object Dependencies {
   object akka_management {
     lazy val version   = "1.1.1"
     lazy val namespace = "com.lightbend.akka.management"
-    lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
-    lazy val cluster_http = namespace %% "akka-management-cluster-http" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
+    lazy val cluster_bootstrap = namespace %% "akka-management-cluster-bootstrap" % version excludeAll ExclusionRule(organization="com.typesafe.akka")
+    lazy val cluster_http = namespace %% "akka-management-cluster-http" % version excludeAll ExclusionRule(organization="com.typesafe.akka")
   }
 
   object akka_discovery {
     lazy val version   = akka_management.version
     lazy val namespace = "com.lightbend.akka.discovery"
-    lazy val kubernetes_api =  namespace %% "akka-discovery-kubernetes-api" % version excludeAll (ExclusionRule(organization="com.typesafe.akka"))
+    lazy val kubernetes_api =  namespace %% "akka-discovery-kubernetes-api" % version excludeAll ExclusionRule(organization="com.typesafe.akka")
   }
 
   object scala_logging {
-    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+    val scala_logging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
   }
 
   object logback {
-    val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
+    val logback = "ch.qos.logback" % "logback-classic" % "1.2.7"
   }
 
   object akka_http {
-    lazy val version   = "10.2.5"
+    lazy val version   = "10.2.6"
     lazy val namespace = "com.typesafe.akka"
     lazy val default         = namespace                      %% "akka-http"            % version
     lazy val testkit         = namespace                      %% "akka-http-testkit"    % version % Test
@@ -109,13 +109,13 @@ object Dependencies {
   }
 
   object swagger {
-    lazy val version     = "1.6.2"
+    lazy val version     = "1.6.3"
     lazy val namespace   = "io.swagger"
     lazy val coreSwagger = namespace % "swagger-jaxrs" % version
   }
 
   object javaWebsocket {
-    lazy val version       = "1.5.1"
+    lazy val version       = "1.5.2"
     lazy val namespace     = "org.java-websocket"
     lazy val javaWebsocket = namespace % "Java-WebSocket" % version
   }
@@ -127,7 +127,7 @@ object Dependencies {
   }
 
   object lucene {
-    lazy val version     = "8.9.0"
+    lazy val version     = "8.11.0"
     lazy val namespace   = "org.apache.lucene"
     lazy val core        = namespace % "lucene-core" % version
     lazy val queryParser = namespace % "lucene-queryparser" % version
@@ -169,7 +169,7 @@ object Dependencies {
   }
 
   object config {
-    lazy val version   = "1.4.0"
+    lazy val version   = "1.4.1"
     lazy val namespace = "com.typesafe"
     lazy val core      = namespace % "config" % version
   }
