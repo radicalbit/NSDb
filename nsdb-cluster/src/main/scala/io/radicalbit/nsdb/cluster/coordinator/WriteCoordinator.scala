@@ -532,7 +532,7 @@ class WriteCoordinator(metadataCoordinator: ActorRef, schemaCoordinator: ActorRe
                 (location, commitLogCoordinators(location.node.uniqueNodeId))
             }
             .map {
-              case (_, actor) =>
+              case (location, actor) =>
                 (actor ? WriteToCommitLog(db = db,
                                           namespace = namespace,
                                           metric = metric,
