@@ -44,6 +44,7 @@ import io.radicalbit.nsdb.exception.InvalidLocationsInNode
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.util.FileUtils
 
+import java.io.File
 import java.util.concurrent.{TimeUnit, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
@@ -76,8 +77,11 @@ class NodeActorsGuardian extends Actor with ActorLogging {
   protected var node: NSDbNode                   = _
   protected var heartBeatDispatcher: Cancellable = _
 
-  if (config.hasPath(StorageTmpPath))
-    System.setProperty("java.io.tmpdir", config.getString(StorageTmpPath))
+  if (config.hasPath(StorageTmpPath)) {
+    val storageTmpPath = config.getString(StorageTmpPath)
+    System.setProperty("java.io.tmpdir", storageTmpPath)
+    new File(storageTmpPath).mkdirs()
+  }
 
   protected def actorNameSuffix: String = node.uniqueNodeId
 
