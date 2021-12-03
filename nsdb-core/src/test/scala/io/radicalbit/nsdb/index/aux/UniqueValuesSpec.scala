@@ -16,19 +16,13 @@
 
 package io.radicalbit.nsdb.index.aux
 
-import java.nio.file.Paths
-import java.util.UUID
-
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.{NSDbDoubleType, NSDbIntType, NSDbLongType, NSDbStringType}
-import io.radicalbit.nsdb.index.TimeSeriesIndex
 import io.radicalbit.nsdb.model.Schema
-import io.radicalbit.nsdb.test.NSDbSpec
+import io.radicalbit.nsdb.test.{NSDbSpec, NSDbTimeSeriesIndexSpecLike}
 import org.apache.lucene.search.MatchAllDocsQuery
-import org.apache.lucene.store.MMapDirectory
-import org.scalatest.OneInstancePerTest
 
-class UniqueValuesSpec extends NSDbSpec with OneInstancePerTest {
+class UniqueValuesSpec extends NSDbSpec with NSDbTimeSeriesIndexSpecLike {
 
   val testRecords: Seq[Bit] = Seq(
     Bit(150000, 2.5, Map("surname" -> "Doe"), Map("name" -> "John", "age" -> 30L)),
@@ -49,14 +43,9 @@ class UniqueValuesSpec extends NSDbSpec with OneInstancePerTest {
   "TimeSeriesIndex" should {
     "calculate unique values on value" in {
 
-      val timeSeriesIndex =
-        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+      testRecords.foreach(timeSeriesIndex.write(_))
 
-      val writer = timeSeriesIndex.getWriter
-
-      testRecords.foreach(timeSeriesIndex.write(_)(writer))
-
-      writer.close()
+      commit()
 
       val uniqueValues =
         timeSeriesIndex.uniqueValues(new MatchAllDocsQuery, Schema("testMetric", testRecords.head), "name", "value")
@@ -79,14 +68,9 @@ class UniqueValuesSpec extends NSDbSpec with OneInstancePerTest {
 
     "calculate unique values on a tag" in {
 
-      val timeSeriesIndex =
-        new TimeSeriesIndex(new MMapDirectory(Paths.get("target", "test_unique_index", UUID.randomUUID().toString)))
+      testRecords.foreach(timeSeriesIndex.write)
 
-      val writer = timeSeriesIndex.getWriter
-
-      testRecords.foreach(timeSeriesIndex.write(_)(writer))
-
-      writer.close()
+      commit()
 
       val uniqueValues =
         timeSeriesIndex.uniqueValues(new MatchAllDocsQuery, Schema("testMetric", testRecords.head), "name", "age")

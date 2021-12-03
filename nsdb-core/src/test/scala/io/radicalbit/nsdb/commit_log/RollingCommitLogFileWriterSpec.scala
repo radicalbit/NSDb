@@ -16,26 +16,19 @@
 
 package io.radicalbit.nsdb.commit_log
 
-import java.io.{File, FileOutputStream}
-import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import io.radicalbit.nsdb.commit_log.CommitLogWriterActor.{RejectedEntryAction, WriteToCommitLog}
-import io.radicalbit.nsdb.commit_log.RollingCommitLogFileWriter.ForceRolling
-import io.radicalbit.nsdb.common.protocol.NSDbNode
-import io.radicalbit.nsdb.model.Location
-import io.radicalbit.nsdb.test.NSDbSpecLike
+import akka.testkit.TestProbe
+import io.radicalbit.nsdb.test.NSDbTestKitSpecLike
 import org.scalatest.BeforeAndAfter
 
+import java.io.File
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-class RollingCommitLogFileWriterSpec
-    extends TestKit(ActorSystem("radicaldb-test"))
-    with NSDbSpecLike
-    with ImplicitSender
-    with BeforeAndAfter
-    with CommitLogSpec {
+class RollingCommitLogFileWriterSpec extends NSDbTestKitSpecLike with BeforeAndAfter with CommitLogSpec {
+
+  override implicit val system: ActorSystem = ActorSystem(this.getClass.getSimpleName)
 
   private val prefix            = RollingCommitLogFileWriter.fileNamePrefix
   private val fileNameSeparator = RollingCommitLogFileWriter.fileNameSeparator
@@ -55,77 +48,6 @@ class RollingCommitLogFileWriterSpec
 
   "A rolling commit log writer " when {
     "starting" should {
-      "check and delete old files when they are balanced" in {
-        val firstFileName = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq.empty)
-
-        val secondFileName = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq(firstFileName))
-
-        val balancedFile   = new File(s"$directory/$firstFileName")
-        val balancedFileOS = new FileOutputStream(balancedFile, true)
-
-        balancedEntrySeq foreach { entry =>
-          balancedFileOS.write(serializer.serialize(entry))
-        }
-
-        balancedFileOS.flush()
-        balancedFileOS.close()
-
-        val unbalancedFile   = new File(s"$directory/$secondFileName")
-        val unbalancedFileOS = new FileOutputStream(unbalancedFile, true)
-
-        unbalancedEntrySeq foreach { entry =>
-          unbalancedFileOS.write(serializer.serialize(entry))
-        }
-
-        unbalancedFileOS.flush()
-        unbalancedFileOS.close()
-
-        system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
-
-        awaitAssert {
-          val existingFiles = Option(Paths.get(directory).toFile.list())
-            .map(_.toSet)
-            .getOrElse(Set.empty)
-
-          existingFiles.size shouldBe 1
-          existingFiles shouldBe Set(secondFileName)
-        }
-      }
-
-      "check and delete old files when they are not balanced" in {
-        val firstFileName  = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq.empty)
-        val secondFileName = RollingCommitLogFileWriter.nextFileName(db, namespace, metric, Seq(firstFileName))
-
-        val unbalancedFile   = new File(s"$directory/$secondFileName")
-        val unbalancedFileOS = new FileOutputStream(unbalancedFile, true)
-
-        unbalancedEntrySeq foreach { entry =>
-          unbalancedFileOS.write(serializer.serialize(entry))
-        }
-
-        unbalancedFileOS.flush()
-        unbalancedFileOS.close()
-
-        val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))
-
-        rolling ! WriteToCommitLog(db,
-                                   namespace,
-                                   metric,
-                                   1,
-                                   RejectedEntryAction(bit1),
-                                   Location(metric, NSDbNode.empty, 0, 0))
-
-        rolling ! ForceRolling
-
-        awaitAssert {
-          val existingFiles = Option(Paths.get(directory).toFile.list())
-            .map(_.toSet)
-            .getOrElse(Set.empty)
-
-          existingFiles.size shouldBe 1
-          new File(s"$directory/${existingFiles.head}").length() shouldBe 0
-        }
-      }
 
       "passivate itself after a period of inactivity" in {
         val rolling = system.actorOf(RollingCommitLogFileWriter.props(db, namespace, metric))

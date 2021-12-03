@@ -16,7 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import java.io.File
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
@@ -27,6 +26,7 @@ import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.test.NSDbSpecLike
 import org.scalatest.BeforeAndAfterAll
 
+import java.io.File
 import scala.concurrent.duration._
 
 class CommitLogCoordinatorSpec

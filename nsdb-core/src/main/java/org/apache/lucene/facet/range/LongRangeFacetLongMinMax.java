@@ -40,6 +40,11 @@ public class LongRangeFacetLongMinMax extends RangeFacetCounts {
 
   private final long[] minMaxs;
 
+  @Override
+  protected LongRange[] getLongRanges() {
+    return (LongRange[]) this.ranges;
+  }
+
   /** Create {@code LongRangeFacetCounts}, using {@link
    *  LongValuesSource} from the specified rangeField. */
   public LongRangeFacetLongMinMax(String rangeField, String valueField, boolean checkMin,FacetsCollector hits, LongRange... ranges) throws IOException {
@@ -50,9 +55,7 @@ public class LongRangeFacetLongMinMax extends RangeFacetCounts {
 
   private void minMax(LongValuesSource rangeSource, LongValuesSource valueSource, List<MatchingDocs> matchingDocs,boolean checkMin) throws IOException {
 
-    LongRange[] ranges = (LongRange[]) this.ranges;
-
-    LongRangeLongMinMax counter = new LongRangeLongMinMax(ranges,checkMin);
+    LongRangeLongMinMax counter = new LongRangeLongMinMax(getLongRanges(),checkMin);
 
     int missingCount = 0;
     for (MatchingDocs hits : matchingDocs) {

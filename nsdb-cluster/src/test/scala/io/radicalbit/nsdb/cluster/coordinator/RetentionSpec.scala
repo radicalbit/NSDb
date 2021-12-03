@@ -153,7 +153,7 @@ class RetentionSpec
     expectNoMessage(indexingInterval)
   }
 
-  "NSDb Retention" when {
+  "NSDb Retention" ignore {
 
     "is not set to a metric" should {
 

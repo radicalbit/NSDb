@@ -16,8 +16,6 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.pattern.ask
-import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
 import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData.NegativeMetric
 import io.radicalbit.nsdb.common.protocol._
@@ -26,35 +24,29 @@ import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
 import io.radicalbit.nsdb.protocol.MessageProtocol.Events._
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-
 class ReadCoordinatorNegativeSpec extends AbstractReadCoordinatorSpec {
 
-  override def prepareTestData()(implicit timeout: Timeout): Unit = {
+  override def prepareTestData(): Unit = {
     val location1 = Location(_: String, node, 0, 5)
     val location2 = Location(_: String, node, 6, 10)
 
     //negative double metric
-    Await.result(
-      metricsDataActor ? DropMetricWithLocations(db,
-                                                 namespace,
-                                                 NegativeMetric.name,
-                                                 Seq(location1(NegativeMetric.name), location2(NegativeMetric.name))),
-      10 seconds
-    )
+    probe.send(metricsDataActor,
+               DropMetricWithLocations(db,
+                                       namespace,
+                                       NegativeMetric.name,
+                                       Seq(location1(NegativeMetric.name), location2(NegativeMetric.name))))
 
-    Await.result(
-      schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, NegativeMetric.name, NegativeMetric.testRecords.head),
-      10 seconds)
+    probe.send(schemaCoordinator,
+               UpdateSchemaFromRecord(db, namespace, NegativeMetric.name, NegativeMetric.testRecords.head))
 
-    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location1(NegativeMetric.name))), 10 seconds)
+    probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(location1(NegativeMetric.name))))
     NegativeMetric.recordsShard1.foreach(r => {
-      Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location1(NegativeMetric.name), r), 10 seconds)
+      probe.send(metricsDataActor, AddRecordToShard(db, namespace, location1(NegativeMetric.name), r))
     })
-    Await.result(metadataCoordinator ? AddLocations(db, namespace, Seq(location2(NegativeMetric.name))), 10 seconds)
+    probe.send(metadataCoordinator, AddLocations(db, namespace, Seq(location2(NegativeMetric.name))))
     NegativeMetric.recordsShard2.foreach(r => {
-      Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(NegativeMetric.name), r), 10 seconds)
+      probe.send(metricsDataActor, AddRecordToShard(db, namespace, location2(NegativeMetric.name), r))
     })
 
   }

@@ -16,50 +16,51 @@
 
 package io.radicalbit.nsdb.cluster.coordinator
 
-import akka.pattern.ask
-import akka.util.Timeout
 import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.commands.AddLocations
+import io.radicalbit.nsdb.cluster.coordinator.MetadataCoordinator.events.LocationsAdded
 import io.radicalbit.nsdb.cluster.coordinator.mockedData.MockedData._
 import io.radicalbit.nsdb.common.protocol.Bit
 import io.radicalbit.nsdb.common.statement._
 import io.radicalbit.nsdb.model.Location
 import io.radicalbit.nsdb.protocol.MessageProtocol.Commands._
-import io.radicalbit.nsdb.protocol.MessageProtocol.Events.SelectStatementExecuted
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import io.radicalbit.nsdb.protocol.MessageProtocol.Events.{
+  MetricDropped,
+  RecordAccumulated,
+  SchemaUpdated,
+  SelectStatementExecuted
+}
 
 class ReadCoordinatorCharsetSpec extends AbstractReadCoordinatorSpec {
 
-  override def prepareTestData()(implicit timeout: Timeout): Unit = {
+  override def prepareTestData(): Unit = {
     val location1 = Location(_: String, node, 100000, 190000)
     val location2 = Location(_: String, node, 0, 90000)
 
     //drop metrics
-    Await.result(
-      metricsDataActor ? DropMetricWithLocations(db,
-                                                 namespace,
-                                                 CharsetMetric.name,
-                                                 Seq(location1(CharsetMetric.name), location2(CharsetMetric.name))),
-      10 seconds
-    )
+    probe.send(metricsDataActor,
+               DropMetricWithLocations(db,
+                                       namespace,
+                                       CharsetMetric.name,
+                                       Seq(location1(CharsetMetric.name), location2(CharsetMetric.name))))
+    probe.expectMsgType[MetricDropped]
 
-    Await.result(
-      schemaCoordinator ? UpdateSchemaFromRecord(db, namespace, CharsetMetric.name, CharsetMetric.testRecords.head),
-      10 seconds)
+    probe.send(schemaCoordinator,
+               UpdateSchemaFromRecord(db, namespace, CharsetMetric.name, CharsetMetric.testRecords.head))
+    probe.expectMsgType[SchemaUpdated]
 
-    Await.result(metadataCoordinator ? AddLocations(db,
-                                                    namespace,
-                                                    Seq(location1(CharsetMetric.name), location2(CharsetMetric.name))),
-                 10 seconds)
+    probe.send(metadataCoordinator,
+               AddLocations(db, namespace, Seq(location1(CharsetMetric.name), location2(CharsetMetric.name))))
+    probe.expectMsgType[LocationsAdded]
 
     CharsetMetric.recordsShard1
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location1(CharsetMetric.name), r), 10 seconds)
+        probe.send(metricsDataActor, AddRecordToShard(db, namespace, location1(CharsetMetric.name), r))
+        probe.expectMsgType[RecordAccumulated]
       })
     CharsetMetric.recordsShard2
       .foreach(r => {
-        Await.result(metricsDataActor ? AddRecordToShard(db, namespace, location2(CharsetMetric.name), r), 10 seconds)
+        probe.send(metricsDataActor, AddRecordToShard(db, namespace, location2(CharsetMetric.name), r))
+        probe.expectMsgType[RecordAccumulated]
       })
 
   }
